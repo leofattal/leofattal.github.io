@@ -62,7 +62,15 @@ body {
 <a  id ="real" href="https://en.wikipedia.org/wiki/Earth">real</a>
 </div>
 
+<input type="text" id="colorInput" placeholder="enter a color">
+    <button onclick="changeBackgroundColor()">Change Color</button>
 
+    <script>
+        function changeBackgroundColor() {
+            const color = document.getElementById('colorInput').value;
+            document.body.style.backgroundColor = color;
+        }
+    </script>
 
 
 
