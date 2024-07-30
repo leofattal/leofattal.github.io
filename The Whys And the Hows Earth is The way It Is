@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sandbox</title>
+    <title>The whys and the hows earth is the way it is</title>
     <style>
         
     </style>
@@ -24,18 +24,34 @@ font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida San
 }
 
 
-links{
+#links{
 text-align: left;
+margin-left: auto;
+}
+#story{
+text-decoration:none;
+color: green;
+font-size: larger;
 
 }
+#real{
+color: blue;
+text-decoration: none;
+font-size: larger;
+}
+
+
+
+
 
        </style> 
       
 <h1 id="title">The Many Whys And Hows Earth Became The Way It Is</h1>
 <div id="links">
-<h2>story</h2>
-<a href="story.html">story</a>
-</div>
+<h2>How Earth Was Created</h2>
+
+<a id="story" href="story.html">The Story</a>
+<a  id ="real" href="https://en.wikipedia.org/wiki/Earth">real</a>
 
 
 
