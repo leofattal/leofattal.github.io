@@ -33,7 +33,11 @@
         
         const track = {
             width: canvas.width,
-            height: canvas.height
+            height: canvas.height,
+            checkpoints: [
+                { x: 100, y: 50, width: 600, height: 20 },
+                { x: 100, y: 530, width: 600, height: 20 },
+            ]
         };
         
         let keys = {
@@ -44,7 +48,7 @@
         };
         
         let lapCount = 0;
-        let startTime;
+        let startTime = Date.now();
         let timerElement = document.getElementById('timer');
         let lapCountElement = document.getElementById('lapCount');
         
@@ -100,6 +104,68 @@
                 car.angle -= 0.05;
             } else if (keys.right) {
                 car.angle += 0.05;
+            }
+        
+            if (car.speed > car.maxSpeed) {
+                car.speed = car.maxSpeed;
+            }
+            if (car.speed < -car.maxSpeed) {
+                car.speed = -car.maxSpeed;
+            }
+        
+            car.x += car.speed * Math.sin(car.angle);
+            car.y -= car.speed * Math.cos(car.angle);
+        
+            // Keep car within canvas bounds
+            if (car.x < 0) car.x = 0;
+            if (car.x + car.width > canvas.width) car.x = canvas.width - car.width;
+            if (car.y < 0) car.y = 0;
+            if (car.y + car.height > canvas.height) car.y = canvas.height - car.height;
+        
+            // Check for lap completion
+            track.checkpoints.forEach(checkpoint => {
+                if (car.x + car.width / 2 > checkpoint.x &&
+                    car.x + car.width / 2 < checkpoint.x + checkpoint.width &&
+                    car.y + car.height / 2 > checkpoint.y &&
+                    car.y + car.height / 2 < checkpoint.y + checkpoint.height) {
+                        lapCount++;
+                        lapCountElement.textContent = "Laps: " + lapCount;
+                }
+            });
+        }
+        
+        function draw() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        
+            // Draw track checkpoints
+            context.fillStyle = 'rgba(255, 0, 0, 0.5)';
+            track.checkpoints.forEach(checkpoint => {
+                context.fillRect(checkpoint.x, checkpoint.y, checkpoint.width, checkpoint.height);
+            });
+        
+            // Draw car
+            context.save();
+            context.translate(car.x + car.width / 2, car.y + car.height / 2);
+            context.rotate(car.angle);
+            context.drawImage(car.image, -car.width / 2, -car.height / 2, car.width, car.height);
+            context.restore();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+        
+            // Update timer
+            let elapsedTime = (Date.now() - startTime) / 1000;
+            timerElement.textContent = "Time: " + elapsedTime.toFixed(2);
+        
+            requestAnimationFrame(gameLoop);
+        }
+        
+        car.image.onload = function() {
+            gameLoop();
+        };
         </script>
-</body>
-</html>
+        </body>
+        </html>
+    
