@@ -31,6 +31,25 @@
             image: new Image()
         };
         
+        const aiCars = [];
+        const numberOfAICars = 3;
+        
+        for (let i = 0; i < numberOfAICars; i++) {
+            aiCars.push({
+                x: canvas.width / 2 + (i - 1) * 60,
+                y: canvas.height - 150,
+                width: 50,
+                height: 100,
+                speed: 0,
+                angle: 0,
+                acceleration: 0.2,
+                maxSpeed: 4,
+                friction: 0.05,
+                image: new Image(),
+                lapCount: 0
+            });
+        }
+        
         const track = {
             width: canvas.width,
             height: canvas.height,
@@ -53,6 +72,10 @@
         let lapCountElement = document.getElementById('lapCount');
         
         car.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
+        
+        for (let aiCar of aiCars) {
+            aiCar.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
+        }
         
         document.addEventListener('keydown', keyDownHandler);
         document.addEventListener('keyup', keyUpHandler);
@@ -91,19 +114,25 @@
             }
         }
         
-        function update() {
-            if (keys.up) {
-                car.speed += car.acceleration;
-            } else if (keys.down) {
-                car.speed -= car.acceleration;
+        function updateCar(car) {
+            if (car === window.car) {
+                if (keys.up) {
+                    car.speed += car.acceleration;
+                } else if (keys.down) {
+                    car.speed -= car.acceleration;
+                } else {
+                    car.speed *= (1 - car.friction);
+                }
+                if (keys.left) {
+                    car.angle -= 0.05;
+                } else if (keys.right) {
+                    car.angle += 0.05;
+                }
             } else {
+                // Simple AI logic
+                car.speed += car.acceleration * 0.5;
+                car.angle += (Math.random() - 0.5) * 0.1; // Slight random turn to simulate AI behavior
                 car.speed *= (1 - car.friction);
-            }
-        
-            if (keys.left) {
-                car.angle -= 0.05;
-            } else if (keys.right) {
-                car.angle += 0.05;
             }
         
             if (car.speed > car.maxSpeed) {
@@ -128,10 +157,29 @@
                     car.x + car.width / 2 < checkpoint.x + checkpoint.width &&
                     car.y + car.height / 2 > checkpoint.y &&
                     car.y + car.height / 2 < checkpoint.y + checkpoint.height) {
-                        lapCount++;
-                        lapCountElement.textContent = "Laps: " + lapCount;
+                        if (car === window.car) {
+                            lapCount++;
+                            lapCountElement.textContent = "Laps: " + lapCount;
+                        } else {
+                            car.lapCount++;
+                        }
                 }
             });
+        }
+        
+        function drawCar(car) {
+            context.save();
+            context.translate(car.x + car.width / 2, car.y + car.height / 2);
+            context.rotate(car.angle);
+            context.drawImage(car.image, -car.width / 2, -car.height / 2, car.width, car.height);
+            context.restore();
+        }
+        
+        function update() {
+            updateCar(car);
+            for (let aiCar of aiCars) {
+                updateCar(aiCar);
+            }
         }
         
         function draw() {
@@ -143,12 +191,13 @@
                 context.fillRect(checkpoint.x, checkpoint.y, checkpoint.width, checkpoint.height);
             });
         
-            // Draw car
-            context.save();
-            context.translate(car.x + car.width / 2, car.y + car.height / 2);
-            context.rotate(car.angle);
-            context.drawImage(car.image, -car.width / 2, -car.height / 2, car.width, car.height);
-            context.restore();
+            // Draw player car
+            drawCar(car);
+        
+            // Draw AI cars
+            for (let aiCar of aiCars) {
+                drawCar(aiCar);
+            }
         }
         
         function gameLoop() {
@@ -165,7 +214,11 @@
         car.image.onload = function() {
             gameLoop();
         };
+        for (let aiCar of aiCars) {
+            aiCar.image.onload = function() {
+                gameLoop();
+            };
+        }
         </script>
-        </body>
-        </html>
-    
+</body>
+</html>
