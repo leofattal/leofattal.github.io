@@ -5,67 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Race Car Game</title>
     <style>
-        body { margin: 0; padding: 0; }
-        canvas { display: block; }
+        body { margin: 0; padding: 0; text-align: center; }
+        canvas { display: block; margin: 0 auto; background: #ccc; }
+        #gameInfo { margin: 20px; font-size: 20px; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <script src="game.js">const config = {
-        type: Phaser.AUTO,
-        width: 800,
-        height: 600,
-        physics: {
-            default: 'arcade',
-            arcade: {
-                debug: false,
-                gravity: { y: 0 }
-            }
-        },
-        scene: {
-            preload: preload,
-            create: create,
-            update: update
-        }
-    };
-    
-    const game = new Phaser.Game(config);
-    
-    let car;
-    let cursors;
-    
-    function preload() {
-        this.load.image('track', 'https://examples.phaser.io/assets/sprites/track.png');
-        this.load.image('car', 'https://examples.phaser.io/assets/sprites/car90.png');
-    }
-    
-    function create() {
-        // Add track background
-        this.add.tileSprite(400, 300, 800, 600, 'track');
-    
-        // Add car sprite
-        car = this.physics.add.sprite(400, 500, 'car');
-        car.setCollideWorldBounds(true);
-    
-        // Set up cursor keys
-        cursors = this.input.keyboard.createCursorKeys();
-    }
-    
-    function update() {
-        if (cursors.left.isDown) {
-            car.setAngularVelocity(-150);
-        } else if (cursors.right.isDown) {
-            car.setAngularVelocity(150);
-        } else {
-            car.setAngularVelocity(0);
-        }
-    
-        if (cursors.up.isDown) {
-            this.physics.velocityFromRotation(car.rotation, 200, car.body.velocity);
-        } else {
-            car.setVelocity(0);
-        }
-    }
-    </script>
 </head>
 <body>
+    <div id="gameInfo">
+        <span id="lapCount">Laps: 0</span> | <span id="timer">Time: 0.00</span>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script src="game.js">const canvas = document.getElementById('gameCanvas');
+        const context = canvas.getContext('2d');
+        
+        const car = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 50,
+            height: 100,
+            speed: 0,
+            angle: 0,
+            acceleration: 0.2,
+            maxSpeed: 5,
+            friction: 0.05,
+            image: new Image()
+        };
+        
+        const track = {
+            width: canvas.width,
+            height: canvas.height
+        };
+        
+        let keys = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
+        
+        let lapCount = 0;
+        let startTime;
+        let timerElement = document.getElementById('timer');
+        let lapCountElement = document.getElementById('lapCount');
+        
+        car.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
+        
+        document.addEventListener('keydown', keyDownHandler);
+        document.addEventListener('keyup', keyUpHandler);
+        
+        function keyDownHandler(event) {
+            switch(event.key) {
+                case 'ArrowUp':
+                    keys.up = true;
+                    break;
+                case 'ArrowDown':
+                    keys.down = true;
+                    break;
+                case 'ArrowLeft':
+                    keys.left = true;
+                    break;
+                case 'ArrowRight':
+                    keys.right = true;
+                    break;
+            }
+        }
+        
+        function keyUpHandler(event) {
+            switch(event.key) {
+                case 'ArrowUp':
+                    keys.up = false;
+                    break;
+                case 'ArrowDown':
+                    keys.down = false;
+                    break;
+                case 'ArrowLeft':
+                    keys.left = false;
+                    break;
+                case 'ArrowRight':
+                    keys.right = false;
+                    break;
+            }
+        }
+        
+        function update() {
+            if (keys.up) {
+                car.speed += car.acceleration;
+            } else if (keys.down) {
+                car.speed -= car.acceleration;
+            } else {
+                car.speed *= (1 - car.friction);
+            }
+        
+            if (keys.left) {
+                car.angle -= 0.05;
+            } else if (keys.right) {
+                car.angle += 0.05;
+        </script>
 </body>
 </html>
