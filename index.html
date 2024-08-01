@@ -3,98 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>fact pack</title>
-    <link rel="icon" type="image/png" href="/images/favicon.png">
-    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
-    <link rel="shortcut icon" href="/images/favicon.ico">   
+    <title>Race Car Game</title>
+    <style>
+        body { margin: 0; padding: 0; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <script src="game.js">const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                debug: false,
+                gravity: { y: 0 }
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+    
+    const game = new Phaser.Game(config);
+    
+    let car;
+    let cursors;
+    
+    function preload() {
+        this.load.image('track', 'https://examples.phaser.io/assets/sprites/track.png');
+        this.load.image('car', 'https://examples.phaser.io/assets/sprites/car90.png');
+    }
+    
+    function create() {
+        // Add track background
+        this.add.tileSprite(400, 300, 800, 600, 'track');
+    
+        // Add car sprite
+        car = this.physics.add.sprite(400, 500, 'car');
+        car.setCollideWorldBounds(true);
+    
+        // Set up cursor keys
+        cursors = this.input.keyboard.createCursorKeys();
+    }
+    
+    function update() {
+        if (cursors.left.isDown) {
+            car.setAngularVelocity(-150);
+        } else if (cursors.right.isDown) {
+            car.setAngularVelocity(150);
+        } else {
+            car.setAngularVelocity(0);
+        }
+    
+        if (cursors.up.isDown) {
+            this.physics.velocityFromRotation(car.rotation, 200, car.body.velocity);
+        } else {
+            car.setVelocity(0);
+        }
+    }
+    </script>
 </head>
 <body>
-    <style>
-        
-
-    .animal-info{
-        width: 100%;
-        height: 400px;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
-
-    .title{
-        color: rgb(21, 206, 74);  
-        transition: hover;
-       text-size-adjust:auto;
-        text-align: center;
-    }
-
-    body{
-        background-color: blanchedalmond;
-    }
-
-    </style>
-  
-    <h1 class="title">Fact pack</h1>
-    <h2 class="title">Table of contents</h2>
-    <a href="story.html" class="interactive-button">Earth Story</a><br/>
-    <a href="#sharks">sharks</a>
-     <h2>Turtles</h2> 
-     <div class="animal-info">
-
-
-        <ul>
-        <li><strong> Ancient Reptiles: <strong>Turtles are one of the oldest reptile groups, dating back to the time of the dinosaurs over 200 million years ago.</li>
-
-        <li> <strong>Shells for Protection: </strong>Turtles have a unique shell made up of 50 bones fused together, including their ribs and spine. This shell serves as a protective shield.</li>
-
-        <li> <strong> Habitats:</strong> Turtles can be found in a variety of environments, including oceans, rivers, and forests. Sea turtles live in the ocean, while freshwater turtles inhabit rivers and lakes, and terrestrial turtles (tortoises) live on.</li> 
-
-        <li> <strong> Longevity:<strong> Turtles are known for their long lifespans. Some species, like the Galápagos tortoise, can live over 100 years. The oldest recorded turtle was a radiated tortoise named Tu'i Malila, who lived to be at least 188 years old.</li>
-
-        <li> <strong>  Unique Diets:</strong> Depending on the species, turtles can be herbivores, carnivores, or omnivores. For example, green sea turtles primarily eat seagrass and algae, while snapping turtles eat a more varied diet, including fish, insects, and even small mammals.</li>
-
-        <li> <strong> Breathing and Hibernation:</strong> While turtles breathe air, some species can absorb oxygen through their skin, throat, and cloaca (a multi-purpose orifice) while underwater. Certain species of turtles hibernate in the winter by burying themselves in mud and slowing down their metabolism.</li>
-
-        <li>  <strong> Navigation Skills:</strong> Sea turtles are known for their incredible navigational abilities. Female sea turtles return to the same beach where they were born to lay their eggs, sometimes traveling thousands of miles to get there.</li>
-
-        <li>  <strong> Temperature-Dependent Sex Determination:</strong> The sex of turtle hatchlings is determined by the temperature of the sand where the eggs are incubated. Warmer temperatures tend to produce female hatchlings, while cooler temperatures produce males.</li>
-
-        <li>   <strong> of Species:</strong> There are over 300 species of turtles, each adapted to its specific habitat and lifestyle. Some well-known species include the leatherback sea turtle, the common snapping turtle, and the box turtle.</li>
-
-        <li> <strong> Conservation Status:</strong> Many turtle species are endangered due to threats like habitat destruction, pollution, climate change, and poaching. Conservation efforts are underway to protect these ancient creatures and their habitats.</li>
-        </ul>
-       
-    </div> 
-    <h2 id="sharks">sharks</h2>
-         <div class="animal-info">        
-    <ul>
-        <li><strong>Diverse Species:</strong> There are over 500 species of sharks, ranging from the tiny dwarf lanternshark (about 8 inches) to the massive whale shark (up to 40 feet).</li>
-        <li><strong>Ancient Creatures:</strong> Sharks have been around for over 400 million years, making them older than dinosaurs.</li>
-        <li><strong>Sensory Superpowers:</strong> Sharks have exceptional senses. They can detect blood in the water from miles away and have an acute sense of hearing, able to detect prey from great distances.</li>
-        <li><strong>Electroreception:</strong> Sharks have special organs called ampullae of Lorenzini that allow them to detect the electric fields generated by other animals, helping them hunt in murky waters.</li>
-        <li><strong>Cartilaginous Skeletons:</strong> Unlike most fish, sharks don't have bones. Their skeletons are made of cartilage, which is lighter and more flexible than bone.</li>
-        <li><strong>Teeth Galore:</strong> Sharks continually shed and replace their teeth throughout their lives. Some species can lose up to 30,000 teeth in their lifetime.</li>
-        <li><strong>Varied Diets:</strong> While many sharks are carnivorous, eating fish, seals, and even other sharks, some, like the whale shark and basking shark, are filter feeders that eat plankton.</li>
-        <li><strong>No Swim Bladders:</strong> Sharks lack swim bladders (which help fish stay buoyant). Instead, they rely on their large, oily livers and constant movement to maintain buoyancy.</li>
-        <li><strong>Vital Role in Ecosystems:</strong> Sharks are apex predators and play a crucial role in maintaining the health of marine ecosystems by keeping prey populations in check.</li>
-        <li><strong>Reproductive Diversity:</strong> Shark reproduction varies widely. Some species lay eggs (oviparous), some give birth to live young (viviparous), and some have a combination of both (ovoviviparous).</li>
-        <li><strong>Long Gestation Periods:</strong> Some shark species have long gestation periods, with the frilled shark having a gestation period of up to 3.5 years, one of the longest of any vertebrate.</li>
-        <li><strong>Shark Attacks:</strong> Shark attacks on humans are extremely rare. Most shark species are not dangerous to humans, and more people are killed by falling coconuts each year than by sharks.</li>
-        <li><strong>Conservation Concerns:</strong> Many shark species are threatened by overfishing, habitat destruction, and the demand for shark fins. Conservation efforts are crucial to their survival.</li>
-        <li><strong>Unique Adaptations:</strong> Some sharks, like the Greenland shark, can live in extremely cold waters, while others, like the bull shark, can survive in both salt and fresh water.</li>
-        <li><strong>Long Lifespans:</strong> Some sharks can live for a very long time. For example, the Greenland shark is believed to live for up to 400 years, making it one of the longest-living vertebrates.</li>
-      </ul>
-      </div>
-      
-      
-      
-      
-      
-      
-      
-      
-      
-
-
-
-
-
-</body> 
+</body>
+</html>
