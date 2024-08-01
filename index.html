@@ -8,13 +8,19 @@
         body { margin: 0; padding: 0; text-align: center; }
         canvas { display: block; margin: 0 auto; background: #ccc; }
         #gameInfo { margin: 20px; font-size: 20px; }
+        #shop { display: none; }
     </style>
 </head>
 <body>
     <div id="gameInfo">
-        <span id="lapCount">Laps: 0</span> | <span id="timer">Time: 0.00</span>
+        <span id="lapCount">Laps: 0</span> | <span id="timer">Time: 0.00</span> | <span id="coins">Coins: 0</span>
     </div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="shop">
+        <h2>Shop</h2>
+        <button id="buyCar1">Buy Car 1 (100 coins)</button>
+        <button id="buyCar2">Buy Car 2 (200 coins)</button>
+    </div>
     <script src="game.js">const canvas = document.getElementById('gameCanvas');
         const context = canvas.getContext('2d');
         
@@ -28,7 +34,8 @@
             acceleration: 0.2,
             maxSpeed: 5,
             friction: 0.05,
-            image: new Image()
+            image: new Image(),
+            coins: 0
         };
         
         const aiCars = [];
@@ -50,15 +57,6 @@
             });
         }
         
-        const track = {
-            width: canvas.width,
-            height: canvas.height,
-            checkpoints: [
-                { x: 100, y: 50, width: 600, height: 20 },
-                { x: 100, y: 530, width: 600, height: 20 },
-            ]
-        };
-        
         let keys = {
             left: false,
             right: false,
@@ -70,6 +68,7 @@
         let startTime = Date.now();
         let timerElement = document.getElementById('timer');
         let lapCountElement = document.getElementById('lapCount');
+        let coinsElement = document.getElementById('coins');
         
         car.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
         
@@ -150,21 +149,6 @@
             if (car.x + car.width > canvas.width) car.x = canvas.width - car.width;
             if (car.y < 0) car.y = 0;
             if (car.y + car.height > canvas.height) car.y = canvas.height - car.height;
-        
-            // Check for lap completion
-            track.checkpoints.forEach(checkpoint => {
-                if (car.x + car.width / 2 > checkpoint.x &&
-                    car.x + car.width / 2 < checkpoint.x + checkpoint.width &&
-                    car.y + car.height / 2 > checkpoint.y &&
-                    car.y + car.height / 2 < checkpoint.y + checkpoint.height) {
-                        if (car === window.car) {
-                            lapCount++;
-                            lapCountElement.textContent = "Laps: " + lapCount;
-                        } else {
-                            car.lapCount++;
-                        }
-                }
-            });
         }
         
         function drawCar(car) {
@@ -175,21 +159,35 @@
             context.restore();
         }
         
+        function detectCollisions() {
+            for (let i = aiCars.length - 1; i >= 0; i--) {
+                const aiCar = aiCars[i];
+                if (isCollision(car, aiCar)) {
+                    aiCars.splice(i, 1);
+                    car.coins += 10; // Earn 10 coins for each AI car killed
+                    coinsElement.textContent = "Coins: " + car.coins;
+                }
+            }
+        }
+        
+        function isCollision(car1, car2) {
+            const distX = car1.x + car1.width / 2 - (car2.x + car2.width / 2);
+            const distY = car1.y + car1.height / 2 - (car2.y + car2.height / 2);
+            const distance = Math.sqrt(distX * distX + distY * distY);
+        
+            return distance < (car1.width + car2.width) / 2;
+        }
+        
         function update() {
             updateCar(car);
             for (let aiCar of aiCars) {
                 updateCar(aiCar);
             }
+            detectCollisions();
         }
         
         function draw() {
             context.clearRect(0, 0, canvas.width, canvas.height);
-        
-            // Draw track checkpoints
-            context.fillStyle = 'rgba(255, 0, 0, 0.5)';
-            track.checkpoints.forEach(checkpoint => {
-                context.fillRect(checkpoint.x, checkpoint.y, checkpoint.width, checkpoint.height);
-            });
         
             // Draw player car
             drawCar(car);
@@ -222,3 +220,4 @@
         </script>
 </body>
 </html>
+
