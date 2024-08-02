@@ -21,7 +21,9 @@
         <button id="buyCar1">Buy Car 1 (100 coins)</button>
         <button id="buyCar2">Buy Car 2 (200 coins)</button>
     </div>
-    <script src="game.js">const canvas = document.getElementById('gameCanvas');
+    <script>
+        
+        const canvas = document.getElementById('gameCanvas');
         const context = canvas.getContext('2d');
         
         const car = {
@@ -70,10 +72,10 @@
         let lapCountElement = document.getElementById('lapCount');
         let coinsElement = document.getElementById('coins');
         
-        car.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
+        car.image.src = 'images/blueCar.png'; // Use any car image
         
         for (let aiCar of aiCars) {
-            aiCar.image.src = 'https://examples.phaser.io/assets/sprites/car90.png'; // Use any car image
+            aiCar.image.src = 'images/redCar.png'; // Use any car image
         }
         
         document.addEventListener('keydown', keyDownHandler);
