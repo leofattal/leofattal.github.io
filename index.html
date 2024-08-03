@@ -221,7 +221,7 @@
         
             // Update timer
             let elapsedTime = (Date.now() - startTime) / 1000;
-            timerElement.textContent = "Time: " + elapsedTime.toFixed(2);
+            timerElement.textContent = "Time: " + elapsedTime.toFixed(1);
         
             requestAnimationFrame(gameLoop);
         }
