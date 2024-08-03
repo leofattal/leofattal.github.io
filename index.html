@@ -29,7 +29,7 @@
         const car = {
             x: canvas.width / 2,
             y: canvas.height - 100,
-            width: 50,
+            width: 100,
             height: 100,
             speed: 0,
             angle: 0,
@@ -37,17 +37,19 @@
             maxSpeed: 5,
             friction: 0.05,
             image: new Image(),
-            coins: 0
+            coins: 0,
+            driver: 'human'
         };
-        
+
+
         const aiCars = [];
         const numberOfAICars = 3;
-        
+
         for (let i = 0; i < numberOfAICars; i++) {
             aiCars.push({
                 x: canvas.width / 2 + (i - 1) * 60,
                 y: canvas.height - 150,
-                width: 50,
+                width: 100,
                 height: 100,
                 speed: 0,
                 angle: 0,
@@ -55,7 +57,8 @@
                 maxSpeed: 4,
                 friction: 0.05,
                 image: new Image(),
-                lapCount: 0
+                lapCount: 0,
+                driver: 'ai'
             });
         }
         
@@ -72,62 +75,72 @@
         let lapCountElement = document.getElementById('lapCount');
         let coinsElement = document.getElementById('coins');
         
-        car.image.src = 'blueCar.png'; // Use any car image
-        
+        car.image.src = 'images/blueCar.png'; // Use any car image
+
         for (let aiCar of aiCars) {
-            aiCar.image.src = 'redCar.png'; // Use any car image
+            aiCar.image.src = 'images/redCar.png'; // Use any car image
         }
-        
+        console.log(car);
+        console.log(aiCars);
         document.addEventListener('keydown', keyDownHandler);
         document.addEventListener('keyup', keyUpHandler);
-        
+
         function keyDownHandler(event) {
             switch(event.key) {
                 case 'ArrowUp':
                     keys.up = true;
+                    console.log('ArrowUp pressed');
                     break;
                 case 'ArrowDown':
                     keys.down = true;
+                    console.log('ArrowDown pressed');
                     break;
                 case 'ArrowLeft':
                     keys.left = true;
+                    console.log('ArrowLeft pressed');
                     break;
                 case 'ArrowRight':
                     keys.right = true;
+                    console.log('ArrowRight pressed');
                     break;
             }
         }
-        
+
         function keyUpHandler(event) {
             switch(event.key) {
                 case 'ArrowUp':
                     keys.up = false;
+                    console.log('ArrowUp released');
                     break;
                 case 'ArrowDown':
                     keys.down = false;
+                    console.log('ArrowDown released');
                     break;
                 case 'ArrowLeft':
                     keys.left = false;
+                    console.log('ArrowLeft released');
                     break;
                 case 'ArrowRight':
                     keys.right = false;
+                    console.log('ArrowRight released');
                     break;
             }
         }
+
         
         function updateCar(car) {
-            if (car === window.car) {
+            if (car.driver == 'human') {
                 if (keys.up) {
                     car.speed += car.acceleration;
                 } else if (keys.down) {
-                    car.speed -= car.acceleration;
+                    car.speed -= car.acceleration * 1.5; // Increased deceleration
                 } else {
                     car.speed *= (1 - car.friction);
                 }
                 if (keys.left) {
-                    car.angle -= 0.05;
+                    car.angle -= 0.1; // Increased turning speed
                 } else if (keys.right) {
-                    car.angle += 0.05;
+                    car.angle += 0.1; // Increased turning speed
                 }
             } else {
                 // Simple AI logic
@@ -135,23 +148,25 @@
                 car.angle += (Math.random() - 0.5) * 0.1; // Slight random turn to simulate AI behavior
                 car.speed *= (1 - car.friction);
             }
-        
+
             if (car.speed > car.maxSpeed) {
                 car.speed = car.maxSpeed;
             }
             if (car.speed < -car.maxSpeed) {
                 car.speed = -car.maxSpeed;
             }
-        
+
             car.x += car.speed * Math.sin(car.angle);
             car.y -= car.speed * Math.cos(car.angle);
-        
+
             // Keep car within canvas bounds
             if (car.x < 0) car.x = 0;
             if (car.x + car.width > canvas.width) car.x = canvas.width - car.width;
             if (car.y < 0) car.y = 0;
             if (car.y + car.height > canvas.height) car.y = canvas.height - car.height;
+
         }
+
         
         function drawCar(car) {
             context.save();
@@ -165,7 +180,7 @@
             for (let i = aiCars.length - 1; i >= 0; i--) {
                 const aiCar = aiCars[i];
                 if (isCollision(car, aiCar)) {
-                    aiCars.splice(i, 1);
+                    //aiCars.splice(i, 1);
                     car.coins += 10; // Earn 10 coins for each AI car killed
                     coinsElement.textContent = "Coins: " + car.coins;
                 }
@@ -214,11 +229,7 @@
         car.image.onload = function() {
             gameLoop();
         };
-        for (let aiCar of aiCars) {
-            aiCar.image.onload = function() {
-                gameLoop();
-            };
-        }
+
         </script>
 </body>
 </html>
