@@ -17,12 +17,8 @@
             font-family: Arial, sans-serif;
         }
 
-        h1 {
+        h1, p {
             color: rgb(0, 0, 0);
-        }
-
-        p {
-            color: rgb(1, 1, 1);
         }
 
         button {
@@ -33,6 +29,7 @@
             cursor: pointer;
             font-size: 16px;
             border-radius: 5px;
+            margin: 5px; /* Add margin between buttons */
         }
 
         input {
@@ -46,10 +43,11 @@
 </head>
 <body>
     <div id="game">
-        <h1>Guess The Number</h1>
-        <p>I'm thinking of a number between 0 and 100. Can you guess it?</p>
+        <h1 id="title">Guess The Number</h1>
+        <p id="instructions">I'm thinking of a number between 0 and 100. Can you guess it?</p>
         <input id="guess" type="number" placeholder="Enter your guess" min="0" max="100">
         <button onclick="checkGuess()">Guess</button>
+        <button onclick="translatePage()">Translate</button> <!-- Translate button -->
         <p id="feedback"></p>
         <p id="triesCount">Tries: 0</p>
         <button id="restartButton" onclick="restartGame()" style="display:none;">Restart</button>
@@ -57,3 +55,4 @@
     <script src="script.js"></script> <!-- Link to the external JavaScript file -->
 </body>
 </html>
+
