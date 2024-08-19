@@ -29,7 +29,7 @@
             cursor: pointer;
             font-size: 16px;
             border-radius: 5px;
-            margin: 5px; /* Add margin between buttons */
+            margin: 5px;
         }
 
         input {
@@ -39,6 +39,17 @@
             border-radius: 5px;
             border: 1px solid #ccc;
         }
+
+        #languageMenu {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .language-option {
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -46,8 +57,14 @@
         <h1 id="title">Guess The Number</h1>
         <p id="instructions">I'm thinking of a number between 0 and 100. Can you guess it?</p>
         <input id="guess" type="number" placeholder="Enter your guess" min="0" max="100">
-        <button onclick="checkGuess()">Guess</button>
-        <button onclick="translatePage()">Translate</button> <!-- Translate button -->
+        <button id="guessButton" onclick="checkGuess()">Guess</button>
+        <button onclick="toggleLanguageMenu()">Translate</button>
+        <div id="languageMenu">
+            <p class="language-option" onclick="translatePage('en')">English</p>
+            <p class="language-option" onclick="translatePage('zh')">中文</p>
+            <p class="language-option" onclick="translatePage('es')">Español</p>
+            <p class="language-option" onclick="translatePage('fr')">Français</p>
+        </div>
         <p id="feedback"></p>
         <p id="triesCount">Tries: 0</p>
         <button id="restartButton" onclick="restartGame()" style="display:none;">Restart</button>
@@ -55,4 +72,3 @@
     <script src="script.js"></script> <!-- Link to the external JavaScript file -->
 </body>
 </html>
-

@@ -32,29 +32,84 @@ function restartGame() {
     document.getElementById('restartButton').style.display = 'none';
 }
 
-function translatePage() {
+function toggleLanguageMenu() {
+    const languageMenu = document.getElementById('languageMenu');
+    languageMenu.style.display = languageMenu.style.display === 'none' ? 'block' : 'none';
+}
+
+function translatePage(language) {
     const translations = {
-        title: "Adivina el Número",
-        instructions: "Estoy pensando en un número entre 0 y 100. ¿Puedes adivinarlo?",
-        guessPlaceholder: "Ingresa tu suposición",
-        feedback: "¡Felicitaciones! ¡Adivinaste el número correcto!",
-        tooHigh: "¡Demasiado alto! Intenta nuevamente.",
-        tooLow: "¡Demasiado bajo! Intenta nuevamente.",
-        tries: "Intentos"
+        en: {
+            title: "Guess The Number",
+            instructions: "I'm thinking of a number between 0 and 100. Can you guess it?",
+            guessPlaceholder: "Enter your guess",
+            guessButton: "Guess",
+            translateButton: "Translate",
+            restartButton: "Restart",
+            feedback: "Congratulations! You guessed the right number!",
+            tooHigh: "Too high! Try again.",
+            tooLow: "Too low! Try again.",
+            tries: "Tries"
+        },
+        zh: {
+            title: "猜数字",
+            instructions: "我在想一个 0 到 100 之间的数字。你能猜到吗？",
+            guessPlaceholder: "输入你的猜测",
+            guessButton: "猜测",
+            translateButton: "翻译",
+            restartButton: "重新开始",
+            feedback: "恭喜！你猜对了！",
+            tooHigh: "太高了！再试一次。",
+            tooLow: "太低了！再试一次。",
+            tries: "尝试次数"
+        },
+        es: {
+            title: "Adivina el Número",
+            instructions: "Estoy pensando en un número entre 0 y 100. ¿Puedes adivinarlo?",
+            guessPlaceholder: "Ingresa tu suposición",
+            guessButton: "Adivinar",
+            translateButton: "Traducir",
+            restartButton: "Reiniciar",
+            feedback: "¡Felicitaciones! ¡Adivinaste el número correcto!",
+            tooHigh: "¡Demasiado alto! Intenta nuevamente.",
+            tooLow: "¡Demasiado bajo! Intenta nuevamente.",
+            tries: "Intentos"
+        },
+        fr: {
+            title: "Devinez le Nombre",
+            instructions: "Je pense à un nombre entre 0 et 100. Pouvez-vous le deviner?",
+            guessPlaceholder: "Entrez votre supposition",
+            guessButton: "Deviner",
+            translateButton: "Traduire",
+            restartButton: "Redémarrer",
+            feedback: "Félicitations! Vous avez deviné le bon nombre!",
+            tooHigh: "Trop haut! Réessayez.",
+            tooLow: "Trop bas! Réessayez.",
+            tries: "Essais"
+        }
     };
 
-    document.getElementById('title').textContent = translations.title;
-    document.getElementById('instructions').textContent = translations.instructions;
-    document.getElementById('guess').placeholder = translations.guessPlaceholder;
-    document.getElementById('triesCount').textContent = `${translations.tries}: ${tries}`;
+    const selectedLanguage = translations[language];
+    document.getElementById('title').textContent = selectedLanguage.title;
+    document.getElementById('instructions').textContent = selectedLanguage.instructions;
+    document.getElementById('guess').placeholder = selectedLanguage.guessPlaceholder;
+    document.getElementById('guessButton').textContent = selectedLanguage.guessButton;
+    document.querySelector('button[onclick="toggleLanguageMenu()"]').textContent = selectedLanguage.translateButton;
+    document.getElementById('restartButton').textContent = selectedLanguage.restartButton;
+
     const feedback = document.getElementById('feedback').textContent;
 
-    if (feedback === "Congratulations! You guessed the right number!") {
-        document.getElementById('feedback').textContent = translations.feedback;
-    } else if (feedback === "Too high! Try again.") {
-        document.getElementById('feedback').textContent = translations.tooHigh;
-    } else if (feedback === "Too low! Try again.") {
-        document.getElementById('feedback').textContent = translations.tooLow;
+    if (feedback.includes("Congratulations") || feedback.includes("恭喜") || feedback.includes("¡Felicitaciones!") || feedback.includes("Félicitations")) {
+        document.getElementById('feedback').textContent = selectedLanguage.feedback;
+    } else if (feedback.includes("Too high") || feedback.includes("太高了") || feedback.includes("¡Demasiado alto!") || feedback.includes("Trop haut")) {
+        document.getElementById('feedback').textContent = selectedLanguage.tooHigh;
+    } else if (feedback.includes("Too low") || feedback.includes("太低了") || feedback.includes("¡Demasiado bajo!") || feedback.includes("Trop bas")) {
+        document.getElementById('feedback').textContent = selectedLanguage.tooLow;
     }
+
+    document.getElementById('triesCount').textContent = `${selectedLanguage.tries}: ${tries}`;
 }
+
+
+
 
