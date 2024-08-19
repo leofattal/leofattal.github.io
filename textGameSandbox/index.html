@@ -4,14 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guess the Number Game</title>
+    <style>
+        #game {
+            display: grid;
+            place-items: center;
+            height: 100vh;
+        }
+
+        body {
+            background-color: aqua;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            color: rgb(0, 0, 0);
+        }
+
+        p {
+            color: rgb(1, 1, 1);
+        }
+
+        button {
+            color: rgb(123, 123, 236);
+            background-color: rgb(255, 255, 255);
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+    </style>
 </head>
 <body>
-    <h1>Guess the Number</h1>
-    <p>I'm thinking of a number between 0 and 100. Can you guess it?</p>
-    <input type="number" id="userGuess" placeholder="Enter your guess" min="0" max="100">
-    <button onclick="checkGuess()">Guess</button>
-    <p id="feedback"></p>
-    <button id="restartButton" onclick="restartGame()" style="display:none;">Restart</button>
-    <script src="script.js"></script>
+    <div id="game">
+        <h1>Guess The Number</h1>
+        <p>I'm thinking of a number between 0 and 100. Can you guess it?</p>
+        <input id="guess" type="number" placeholder="Enter your guess" min="0" max="100">
+        <button onclick="checkGuess()">Guess</button>
+        <p id="feedback"></p>
+        <p id="triesCount">Tries: 0</p>
+        <button id="restartButton" onclick="restartGame()" style="display:none;">Restart</button>
+    </div>
+    <script src="script.js"></script> <!-- Link to the external JavaScript file -->
 </body>
 </html>
