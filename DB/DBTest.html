@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Data Retrieval</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.1.0/dist/umd/supabase.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        pre {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            width: 80%;
+            max-width: 600px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Supabase Data Retrieval</h1>
+    <button onclick="fetchData()">Fetch Data</button>
+    <pre id="dataDisplay"></pre>
+
+    <script>
+        // Initialize Supabase
+        const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co'; 
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxNTI1NzQsImV4cCI6MjA0MDcyODU3NH0.klrVAlSHsWFZhqYZGal8-AQKKh1LTsBXrbNPGCe-d5c'; // Replace with your Supabase Anon Key
+
+        // Correctly create the Supabase client
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function fetchData() {
+            if (!supabase) {
+                console.error('Supabase client is not initialized');
+                document.getElementById('dataDisplay').innerText = 'Supabase client not initialized';
+                document.body.style.backgroundColor = 'lightcoral'; // Set background color to light coral on error
+                return;
+            }
+
+            try {
+                // Query the 'users' table
+                const { data, error } = await supabase
+                    .from('users') // Replace 'users' with your table name
+                    .select('*'); // Adjust columns as needed
+
+                if (error) {
+                    throw error;
+                }
+
+                // Display the data
+                document.getElementById('dataDisplay').innerText = JSON.stringify(data, null, 2);
+                document.body.style.backgroundColor = 'lightgreen'; // Set background color to light green on success
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                document.getElementById('dataDisplay').innerText = 'Error fetching data';
+                document.body.style.backgroundColor = 'lightcoral'; // Set background color to light coral on error
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
