@@ -1,127 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Data Retrieval</title>
+    <title>Messaging App</title>
+</head>
+
+<body>
+    <h1>Messaging App</h1>
+
+    <div id="user-selection">
+        <h2>Select User</h2>
+        <select id="user-select">
+            <option value="">--Select User--</option>
+        </select>
+        <button onclick="selectUser()">Select</button>
+        <button onclick="showCreateUser()">Create New User</button>
+    </div>
+
+    <div id="create-user" style="display: none;">
+        <h2>Create New User</h2>
+        <input type="text" id="first-name" placeholder="First Name" required />
+        <input type="text" id="last-name" placeholder="Last Name" required />
+        <input type="number" id="age" placeholder="Age" required />
+        <button onclick="createUser()">Create</button>
+    </div>
+
+    <div id="message-input" style="display: none;">
+        <h2>Post a Message</h2>
+        <textarea id="message-content" placeholder="Enter your message"></textarea>
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div id="message-display">
+        <h2>Messages</h2>
+        <pre id="messages"></pre>
+    </div>
+
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.1.0/+esm';
 
-        const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co'; 
+        const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxNTI1NzQsImV4cCI6MjA0MDcyODU3NH0.klrVAlSHsWFZhqYZGal8-AQKKh1LTsBXrbNPGCe-d5c';
-
-        // Initialize Supabase client
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        async function fetchData() {
-            try {
-                const { data, error } = await supabase
-                    .from('messages')
-                    .select('*');
+        let currentUser;
 
-                if (error) throw error;
-
-                // Display data in a table
-               
-        async function addUser() {
-            const firstName = document.getElementById('firstName').value
-
-           
+        async function fetchUsers() {
+            const { data: users, error } = await supabase.from('users').select('*');
+            if (error) {
+                console.error('Error fetching users:', error);
+                return;
             }
-
-            try {
-                const { data, error } = await supabase
-                    .from('message')
-                    .insert([{ first_name: firstName}]);
-
-                if (error) throw error;
-
-                alert('message sent successfully');
-                fetchData(); // Refresh the data
-            } catch (err) {
-                console.error('Error adding user:', err);
-                alert('Error adding user');
-            }
+            const userSelect = document.getElementById('user-select');
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.first_name} ${user.last_name}`;
+                userSelect.appendChild(option);
+            });
         }
 
-        window.fetchData = fetchData;
-        window.addUser = addUser;
+        window.selectUser = async function () {
+            const userId = document.getElementById('user-select').value;
+            if (!userId) return alert('Please select a user');
+
+            const { data: user, error } = await supabase.from('users').select('*').eq('id', userId).single();
+            if (error) {
+                console.error('Error selecting user:', error);
+                return;
+            }
+            currentUser = user;
+            document.getElementById('user-selection').style.display = 'none';
+            document.getElementById('message-input').style.display = 'block';
+            fetchMessages();
+        }
+
+        window.showCreateUser = function () {
+            document.getElementById('user-selection').style.display = 'none';
+            document.getElementById('create-user').style.display = 'block';
+        }
+
+        window.createUser = async function () {
+            const firstName = document.getElementById('first-name').value;
+            const lastName = document.getElementById('last-name').value;
+            const age = document.getElementById('age').value;
+
+            const { data: user, error } = await supabase.from('users').insert([{ first_name: firstName, last_name: lastName, age }]).select().single();
+            if (error) {
+                console.error('Error creating user:', error);
+                return;
+            }
+            currentUser = user;
+            document.getElementById('create-user').style.display = 'none';
+            document.getElementById('message-input').style.display = 'block';
+            fetchMessages();
+        }
+
+        window.sendMessage = async function () {
+            const content = document.getElementById('message-content').value;
+            if (!content) return alert('Please enter a message');
+
+            const { data: message, error } = await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
+            if (error) {
+                console.error('Error posting message:', error);
+                return;
+            }
+            document.getElementById('message-content').value = '';
+            fetchMessages();
+        };
+
+        async function fetchMessages() {
+            const { data: messages, error } = await supabase
+                .from('messages')
+                .select('content, created_at, users(first_name)')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching messages:', error);
+                return;
+            }
+
+            const messagesDisplay = document.getElementById('messages');
+            messagesDisplay.innerHTML = '';
+            messages.forEach(message => {
+                messagesDisplay.innerHTML += `${message.users.first_name} : ${message.content}\n`;
+            });
+
+            // Automatically refresh messages every 3 seconds
+            setTimeout(fetchMessages, 3000);
+        }
+
+        fetchUsers();
     </script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f4f4f4;
-        }
-        button {
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-        border-radius: 12px; /* Adjust the radius as needed */
-        border: 1px solid #ddd; /* Optional: Add border if needed */
-        background-color: #007BFF; /* Optional: Set background color */
-        color: white; /* Optional: Set text color */
-        transition: background-color 0.3s ease; /* Optional: Add transition effect */
-    }
-    
-        input {
-            padding: 10px;
-            font-size: 16px;
-            margin: 5px;
-        }
-        table {
-            border-collapse: collapse;
-            width: 80%;
-            max-width: 600px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f4f4f4;
-        }
-        pre {
-            background-color: #fff;
-            border: 1px solid #ddd;
-            padding: 10px;
-            width: 80%;
-            max-width: 600px;
-            overflow-x: auto;
-        
-        }
-        div{
-color: grey;
-
-
-        }
-    </style>
-</head>
-<body>
-    
-    <h1>Texting App</h1>
-    <div>
-
-
-
-
-
-
-
-
-
-    </div>
-    <form onsubmit="event.preventDefault(); addUser();>
-        <input type="text" id="firstName" placeholder="type your text here" required>
-        <button type="submit">send</button>
-    </form>
-
-    <div id="dataDisplay"></div>
 </body>
+
 </html>
