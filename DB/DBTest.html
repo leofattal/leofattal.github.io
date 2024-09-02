@@ -21,9 +21,6 @@
 
                 if (error) throw error;
 
-<<<<<<< HEAD
-                document.getElementById('dataDisplay').innerText = JSON.stringify(data, null, 2);
-=======
                 // Display data in a table
                 const table = document.getElementById('dataDisplay');
                 table.innerHTML = ''; // Clear previous data
@@ -39,7 +36,6 @@
                     table.innerHTML = 'No data available';
                 }
 
->>>>>>> 84bcab2 (DB clean up 2)
                 document.body.style.backgroundColor = 'lightgreen';
             } catch (err) {
                 console.error('Error fetching data:', err);
@@ -48,9 +44,6 @@
             }
         }
 
-<<<<<<< HEAD
-        window.fetchData = fetchData;
-=======
         async function addUser() {
             const firstName = document.getElementById('firstName').value;
             const lastName = document.getElementById('lastName').value;
@@ -78,7 +71,6 @@
 
         window.fetchData = fetchData;
         window.addUser = addUser;
->>>>>>> 84bcab2 (DB clean up 2)
     </script>
     <style>
         body {
@@ -128,11 +120,6 @@
 <body>
     <h1>Supabase Data Retrieval</h1>
     <button onclick="fetchData()">Fetch Data</button>
-<<<<<<< HEAD
-    <pre id="dataDisplay"></pre>
-</body>
-</html>
-=======
     
     <h2>Add New User</h2>
     <form onsubmit="event.preventDefault(); addUser();">
@@ -149,4 +136,3 @@
 
 
 
->>>>>>> 84bcab2 (DB clean up 2)
