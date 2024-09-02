@@ -5,6 +5,97 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messaging App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            color: #4a90e2;
+        }
+
+        #user-selection,
+        #create-user,
+        #message-input,
+        #message-display {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
+        }
+
+        #user-select,
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4a90e2;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #357abd;
+        }
+
+        #messages {
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .message {
+            background-color: #e1f5fe;
+            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 10px;
+            width: fit-content;
+            max-width: 70%;
+        }
+
+        .message.you {
+            background-color: #c8e6c9;
+            align-self: flex-end;
+        }
+
+        .message-content {
+            margin: 0;
+        }
+
+        .message-author {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        textarea {
+            border-radius: 20px;
+            resize: none;
+            height: 50px;
+        }
+    </style>
 </head>
 
 <body>
@@ -28,14 +119,13 @@
     </div>
 
     <div id="message-input" style="display: none;">
-        <h2>Post a Message</h2>
-        <textarea id="message-content" placeholder="Enter your message"></textarea>
+        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
     </div>
 
     <div id="message-display">
         <h2>Messages</h2>
-        <pre id="messages"></pre>
+        <div id="messages"></div>
     </div>
 
     <script type="module">
@@ -75,12 +165,12 @@
             document.getElementById('user-selection').style.display = 'none';
             document.getElementById('message-input').style.display = 'block';
             fetchMessages();
-        }
+        };
 
         window.showCreateUser = function () {
             document.getElementById('user-selection').style.display = 'none';
             document.getElementById('create-user').style.display = 'block';
-        }
+        };
 
         window.createUser = async function () {
             const firstName = document.getElementById('first-name').value;
@@ -96,7 +186,7 @@
             document.getElementById('create-user').style.display = 'none';
             document.getElementById('message-input').style.display = 'block';
             fetchMessages();
-        }
+        };
 
         window.sendMessage = async function () {
             const content = document.getElementById('message-content').value;
@@ -125,12 +215,29 @@
             const messagesDisplay = document.getElementById('messages');
             messagesDisplay.innerHTML = '';
             messages.forEach(message => {
-                messagesDisplay.innerHTML += `${message.users.first_name} : ${message.content}\n`;
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                if (message.users.first_name === currentUser.first_name) {
+                    messageElement.classList.add('you');
+                }
+                messageElement.innerHTML = `
+                    <div class="message-author">${message.users.first_name}</div>
+                    <div class="message-content">${message.content}</div>
+                `;
+                messagesDisplay.appendChild(messageElement);
             });
 
             // Automatically refresh messages every 3 seconds
             setTimeout(fetchMessages, 3000);
         }
+
+        // Attach the handleEnter function to the global window object
+        window.handleEnter = function (event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        };
 
         fetchUsers();
     </script>
