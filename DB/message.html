@@ -203,6 +203,7 @@
         };
 
         let lastMessageId = null;
+        let initialLoad = true; // Flag to track the initial load
 
         async function fetchMessages() {
             const { data: messages, error } = await supabase
@@ -230,12 +231,18 @@
                 messagesDisplay.appendChild(messageElement);
             });
 
-            // Check if a new message has been received
-            if (messages.length > 0 && messages[0].id !== lastMessageId) {
-                // Play the sound
-                document.getElementById('message-sound').play();
-                // Update lastMessageId
-                lastMessageId = messages[0].id;
+            // Skip playing sound on the initial load
+            if (initialLoad) {
+                initialLoad = false;
+                lastMessageId = messages.length > 0 ? messages[0].id : null;
+            } else {
+                // Check if a new message has been received
+                if (messages.length > 0 && messages[0].id !== lastMessageId) {
+                    // Play the sound
+                    document.getElementById('message-sound').play();
+                    // Update lastMessageId
+                    lastMessageId = messages[0].id;
+                }
             }
 
             // Automatically refresh messages every 3 seconds
