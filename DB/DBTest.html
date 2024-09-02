@@ -21,25 +21,7 @@
 
                 if (error) throw error;
 
-<<<<<<< HEAD
                 document.getElementById('dataDisplay').innerText = JSON.stringify(data, null, 2);
-=======
-                // Display data in a table
-                const table = document.getElementById('dataDisplay');
-                table.innerHTML = ''; // Clear previous data
-
-                if (data.length > 0) {
-                    let html = '<table border="1"><thead><tr><th>First Name</th><th>Last Name</th><th>Age</th></tr></thead><tbody>';
-                    data.forEach(user => {
-                        html += `<tr><td>${user.first_name}</td><td>${user.last_name}</td><td>${user.age}</td></tr>`;
-                    });
-                    html += '</tbody></table>';
-                    table.innerHTML = html;
-                } else {
-                    table.innerHTML = 'No data available';
-                }
-
->>>>>>> 939ffe6 (message app)
                 document.body.style.backgroundColor = 'lightgreen';
             } catch (err) {
                 console.error('Error fetching data:', err);
@@ -48,37 +30,7 @@
             }
         }
 
-<<<<<<< HEAD
         window.fetchData = fetchData;
-=======
-        async function addUser() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const age = parseInt(document.getElementById('age').value);
-
-            if (!firstName || !lastName || isNaN(age)) {
-                alert('Please fill in all fields correctly.');
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .insert([{ first_name: firstName, last_name: lastName, age }]);
-
-                if (error) throw error;
-
-                alert('User added successfully');
-                fetchData(); // Refresh the data
-            } catch (err) {
-                console.error('Error adding user:', err);
-                alert('Error adding user');
-            }
-        }
-
-        window.fetchData = fetchData;
-        window.addUser = addUser;
->>>>>>> 939ffe6 (message app)
     </script>
     <style>
         body {
@@ -128,25 +80,6 @@
 <body>
     <h1>Supabase Data Retrieval</h1>
     <button onclick="fetchData()">Fetch Data</button>
-<<<<<<< HEAD
     <pre id="dataDisplay"></pre>
 </body>
 </html>
-=======
-    
-    <h2>Add New User</h2>
-    <form onsubmit="event.preventDefault(); addUser();">
-        <input type="text" id="firstName" placeholder="First Name" required>
-        <input type="text" id="lastName" placeholder="Last Name" required>
-        <input type="number" id="age" placeholder="Age" required>
-        <button type="submit">Add User</button>
-    </form>
-
-    <div id="dataDisplay"></div>
-</body>
-</html>
-
-
-
-
->>>>>>> 939ffe6 (message app)
