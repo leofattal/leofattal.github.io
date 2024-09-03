@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +30,9 @@
             margin-bottom: 20px;
         }
 
-        input, textarea, select {
+        input,
+        textarea,
+        select {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
@@ -112,8 +115,16 @@
         #sign-out:hover {
             text-decoration: underline;
         }
+
+        /* Additional CSS for date display */
+        .message-author span {
+            margin-left: 8px;
+            font-size: 0.85em;
+            color: #888;
+        }
     </style>
 </head>
+
 <body>
     <h1>Messaging App</h1>
 
@@ -164,14 +175,14 @@
         let currentUser;
 
         // Handle Enter key for login
-        window.handleLoginEnter = function(event) {
+        window.handleLoginEnter = function (event) {
             if (event.key === "Enter") {
                 event.preventDefault();
                 loginUser();
             }
         };
 
-        window.loginUser = async function() {
+        window.loginUser = async function () {
             const username = document.getElementById('username').value;
             const passcode = document.getElementById('passcode').value;
 
@@ -206,7 +217,7 @@
             }
         };
 
-        window.createAccount = async function() {
+        window.createAccount = async function () {
             const firstName = document.getElementById('first-name').value;
             const lastName = document.getElementById('last-name').value;
             const age = document.getElementById('age').value;
@@ -238,17 +249,17 @@
             }
         };
 
-        window.showCreateAccountForm = function() {
+        window.showCreateAccountForm = function () {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('create-account-form').style.display = 'block';
         };
 
-        window.showLoginForm = function() {
+        window.showLoginForm = function () {
             document.getElementById('create-account-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
         };
 
-        window.signOut = function() {
+        window.signOut = function () {
             document.getElementById('user-info').style.display = 'none';
             document.getElementById('message-input').style.display = 'none';
             document.getElementById('message-display').style.display = 'none';
@@ -273,6 +284,26 @@
         let lastMessageId = null;
         let initialLoad = true;
 
+        function formatPostDate(createdAt) {
+            const now = new Date();
+            const postDate = new Date(createdAt);
+
+            const timeDifference = now.getTime() - postDate.getTime();
+            const oneDay = 24 * 60 * 60 * 1000; // One day in milliseconds
+
+            if (timeDifference < oneDay && now.getDate() === postDate.getDate()) {
+                // If the post was made today, return the time in hh:mm format
+                return postDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (timeDifference < 2 * oneDay && now.getDate() - postDate.getDate() === 1) {
+                // If the post was made yesterday
+                return "yesterday";
+            } else {
+                // Otherwise, show "x days ago"
+                const daysAgo = Math.floor(timeDifference / oneDay);
+                return `${daysAgo} days ago`;
+            }
+        }
+
         async function fetchMessages() {
             const { data: messages, error } = await supabase
                 .from('messages')
@@ -292,10 +323,15 @@
                 if (message.users.first_name === currentUser.first_name) {
                     messageElement.classList.add('you');
                 }
+
+                const formattedDate = formatPostDate(message.created_at);
+
                 messageElement.innerHTML = `
-                    <div class="message-author">${message.users.first_name}</div>
-                    <div class="message-content">${message.content}</div>
-                `;
+            <div class="message-author">
+                ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
+            </div>
+            <div class="message-content">${message.content}</div>
+        `;
                 messagesDisplay.appendChild(messageElement);
             });
 
@@ -312,7 +348,7 @@
             }
 
             setTimeout(fetchMessages, 3000);
-        };
+        }
 
         window.handleEnter = function (event) {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -322,4 +358,5 @@
         };
     </script>
 </body>
+
 </html>
