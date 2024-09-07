@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leo's Messaging App</title>
+    <style>
+        /* Styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            color: #4a90e2;
+        }
+
+        #message-input,
+        #message-display {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4a90e2;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #357abd;
+        }
+
+        #messages {
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .message {
+            background-color: #e1f5fe;
+            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 10px;
+            width: fit-content;
+            max-width: 70%;
+        }
+
+        .message.you {
+            background-color: #c8e6c9;
+            align-self: flex-end;
+        }
+
+        .message-content {
+            margin: 0;
+        }
+
+        .message-author {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        textarea {
+            border-radius: 20px;
+            resize: none;
+            height: 50px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Leo's Messaging App</h1>
+
+    <div id="message-input">
+        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div id="message-display">
+        <h2>Messages</h2>
+        <div id="messages"></div>
+    </div>
+    <audio id="message-sound" src="sounds/ding.mp3" preload="auto"></audio>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.1.0/+esm';
+
+        const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxNTI1NzQsImV4cCI6MjA0MDcyODU3NH0.klrVAlSHsWFZhqYZGal8-AQKKh1LTsBXrbNPGCe-d5c';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        let currentUser;
+
+        async function getCurrentUser() {
+            const { data, error } = await supabase.auth.getSession();
+            if (error) {
+                console.error('Error getting session:', error);
+                return null;
+            }
+            return data.session?.user;
+        }
+
+        async function initialize() {
+            const user = await getCurrentUser();
+
+            if (user) {
+                const { data: userData, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user data:', error);
+                    return;
+                }
+
+                currentUser = userData;
+                fetchMessages();
+            } else {
+                alert('No user session found. Please log in.');
+                window.location.href = 'login.html'; // Redirect to login page
+            }
+        }
+
+        window.sendMessage = async function () {
+            const content = document.getElementById('message-content').value;
+            if (!content) return alert('Please enter a message');
+
+            const { data: message, error } = await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
+            if (error) {
+                console.error('Error posting message:', error);
+                return;
+            }
+            document.getElementById('message-content').value = '';
+            fetchMessages();
+        };
+
+        let lastMessageId = null;
+        let initialLoad = true; // Flag to track the initial load
+
+        async function fetchMessages() {
+            const { data: messages, error } = await supabase
+                .from('messages')
+                .select('id, content, created_at, users(first_name)')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching messages:', error);
+                return;
+            }
+
+            const messagesDisplay = document.getElementById('messages');
+            messagesDisplay.innerHTML = '';
+            messages.forEach(message => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                if (message.users.first_name === currentUser.first_name) {
+                    messageElement.classList.add('you');
+                }
+                messageElement.innerHTML = `
+            <div class="message-author">${message.users.first_name}</div>
+            <div class="message-content">${message.content}</div>
+        `;
+                messagesDisplay.appendChild(messageElement);
+            });
+
+            // Skip playing sound on the initial load
+            if (initialLoad) {
+                initialLoad = false;
+                lastMessageId = messages.length > 0 ? messages[0].id : null;
+            } else {
+                // Check if a new message has been received
+                if (messages.length > 0 && messages[0].id !== lastMessageId) {
+                    // Play the sound
+                    document.getElementById('message-sound').play();
+                    // Update lastMessageId
+                    lastMessageId = messages[0].id;
+                }
+            }
+
+            // Automatically refresh messages every 3 seconds
+            setTimeout(fetchMessages, 3000);
+        }
+
+        window.handleEnter = function (event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        };
+
+        initialize(); // Start the app by initializing the user session
+    </script>
+</body>
+
+</html>

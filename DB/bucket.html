@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supabase Bucket Files</title>
+  <style>
+    .image-gallery {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .image-item {
+      margin: 10px;
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    img {
+      max-width: 200px;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Image Gallery</h1>
+
+  <!-- File input for uploading images -->
+  <input type="file" id="fileInput" accept="image/*" />
+
+  <div class="image-gallery" id="imageGallery"></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co'; // Replace with your Supabase URL
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyNTE1MjU3NCwiZXhwIjoyMDQwNzI4NTc0fQ.9nFS1ko_awgRnFTbsshSwn-pnlIpQh855jiSL-x2-XU'; // Replace with your Supabase anon key
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const bucketName = 'myImages';
+    const imageGallery = document.getElementById('imageGallery');
+    const fileInput = document.getElementById('fileInput');
+
+    // Function to list and display all files
+    async function listFiles() {
+      const { data, error } = await supabase.storage.from(bucketName).list('', {
+        limit: 100,
+      });
+      console.log(data);
+
+      if (error) {
+        console.error('Error fetching files:', error);
+        return;
+      }
+
+      imageGallery.innerHTML = ''; // Clear current gallery before adding new ones
+      if (data.length === 0) {
+        imageGallery.innerHTML = '<p>No images found.</p>';
+        return;
+      }
+
+      data.forEach(async (file) => {
+        const publicURL = supabase.storage.from(bucketName).getPublicUrl(file.name);
+        console.log(publicURL.data.publicUrl);
+        const imageItem = document.createElement('div');
+        imageItem.classList.add('image-item');
+        imageItem.innerHTML = `
+          <img src="${publicURL.data.publicUrl}" alt="${file.name}">
+          <p>${file.name}</p>
+        `;
+        imageGallery.appendChild(imageItem);
+      });
+    }
+
+    // Function to handle file uploads
+    async function uploadFile(file) {
+      const { data, error } = await supabase.storage.from(bucketName).upload(file.name, file);
+
+      if (error) {
+        console.error('Error uploading file:', error);
+        return;
+      }
+
+      console.log('File uploaded successfully:', data);
+      // Refresh the list of files
+      await listFiles();
+    }
+
+    // Listen for file input changes and upload the selected file
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0]; // Get the selected file
+      if (file) {
+        await uploadFile(file); // Upload the file
+      }
+    });
+
+    // Call the function to list and display files on page load
+    await listFiles();
+  </script>
+</body>
+</html>
+
