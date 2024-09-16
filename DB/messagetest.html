@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leo's Messaging App</title>
+    <title>Messaging App with Image Upload</title>
     <style>
-        /* Styling */
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f7f6;
@@ -22,6 +21,8 @@
             color: #4a90e2;
         }
 
+        #login-form,
+        #create-account-form,
         #message-input,
         #message-display {
             width: 100%;
@@ -30,7 +31,8 @@
         }
 
         input,
-        textarea {
+        textarea,
+        select {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
@@ -48,6 +50,7 @@
             color: white;
             font-size: 16px;
             cursor: pointer;
+            margin-bottom: 2px;
         }
 
         button:hover {
@@ -79,6 +82,12 @@
             align-self: flex-end;
         }
 
+        .message-content img {
+            max-width: 200px;
+            height: auto;
+            border-radius: 8px;
+        }
+
         .message-content {
             margin: 0;
         }
@@ -93,22 +102,76 @@
             resize: none;
             height: 50px;
         }
+
+        #user-info {
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        #sign-out {
+            margin-left: 10px;
+            background-color: transparent;
+            color: #4a90e2;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+        }
+
+        #sign-out:hover {
+            text-decoration: underline;
+        }
+
+        /* Additional CSS for date display */
+        .message-author span {
+            margin-left: 8px;
+            font-size: 0.85em;
+            color: #888;
+        }
     </style>
 </head>
 
 <body>
-    <h1>Leo's Messaging App</h1>
+    <h1>Messaging App</h1>
 
-    <div id="message-input">
-        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
-        <button onclick="sendMessage()">Send</button>
+    <div id="login-form">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="passcode" placeholder="Passcode" required onkeydown="handleLoginEnter(event)">
+        <button onclick="loginUser()">Login</button>
+        <button onclick="showCreateAccountForm()">Create New Account</button>
     </div>
 
-    <div id="message-display">
+    <div id="create-account-form" style="display: none;">
+        <h2>Create New Account</h2>
+        <input type="text" id="first-name" placeholder="First Name" required>
+        <input type="text" id="last-name" placeholder="Last Name" required>
+        <input type="number" id="age" placeholder="Age" required>
+        <input type="text" id="new-username" placeholder="Username" required>
+        <input type="password" id="new-passcode" placeholder="Passcode" required>
+        <button onclick="createAccount()">Create Account</button>
+        <button onclick="showLoginForm()">Back to Login</button>
+    </div>
+
+    <div id="user-info" style="display: none;">
+        Logged in as: <span id="user-name"></span>
+        <button id="sign-out" onclick="signOut()">Sign Out</button>
+    </div>
+
+    <div id="message-input" style="display: none;">
+        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
+        <button onclick="sendMessage()">Send</button>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="uploadImage()">Upload Image</button>
+    </div>
+
+    <div id="message-display" style="display: none;">
         <h2>Messages</h2>
         <div id="messages"></div>
     </div>
+
     <audio id="message-sound" src="sounds/ding.mp3" preload="auto"></audio>
+    <audio id="message-sent-sound" src="sounds/message_sent.mp3" preload="auto"></audio>
 
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.1.0/+esm';
@@ -117,43 +180,66 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxNTI1NzQsImV4cCI6MjA0MDcyODU3NH0.klrVAlSHsWFZhqYZGal8-AQKKh1LTsBXrbNPGCe-d5c';
         const supabase = createClient(supabaseUrl, supabaseKey);
 
+        const bucketName = 'myImages';
         let currentUser;
 
-        async function getCurrentUser() {
-            const { data, error } = await supabase.auth.getSession();
-            if (error) {
-                console.error('Error getting session:', error);
-                return null;
+        window.loginUser = async function () {
+            const username = document.getElementById('username').value;
+            const passcode = document.getElementById('passcode').value;
+
+            if (!username || !passcode) {
+                alert('Please enter both username and passcode.');
+                return;
             }
-            return data.session?.user;
-        }
 
-        async function initialize() {
-            const user = await getCurrentUser();
-
-            if (user) {
-                const { data: userData, error } = await supabase
+            try {
+                const { data, error } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', user.id)
-                    .single();
+                    .eq('username', username)
+                    .eq('passcode', passcode);
 
-                if (error) {
-                    console.error('Error fetching user data:', error);
-                    return;
+                if (error) throw error;
+
+                if (data.length > 0) {
+                    currentUser = data[0];
+                    document.getElementById('login-form').style.display = 'none';
+                    document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
+                    document.getElementById('user-info').style.display = 'block';
+                    document.getElementById('message-input').style.display = 'block';
+                    document.getElementById('message-display').style.display = 'block';
+                    fetchMessages();
+                } else {
+                    alert('Invalid username or passcode.');
                 }
-
-                currentUser = userData;
-                fetchMessages();
-            } else {
-                alert('No user session found. Please log in.');
-                window.location.href = 'login.html'; // Redirect to login page
+            } catch (err) {
+                console.error('Error logging in:', err);
+                alert('Error logging in. Please try again.');
             }
-        }
+        };
 
-        window.sendMessage = async function () {
-            const content = document.getElementById('message-content').value;
-            if (!content) return alert('Please enter a message');
+        window.uploadImage = async function () {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return alert('Please select an image file.');
+
+            try {
+                const { data, error } = await supabase.storage.from(bucketName).upload(file.name, file);
+                if (error) throw error;
+
+                const { publicUrl } = supabase.storage.from(bucketName).getPublicUrl(file.name).data;
+                await sendMessage(publicUrl); // Send the image URL as a message
+            } catch (err) {
+                console.error('Error uploading image:', err);
+                alert('Error uploading image. Please try again.');
+            }
+        };
+
+        window.sendMessage = async function (content) {
+            if (!content) {
+                content = document.getElementById('message-content').value;
+                if (!content) return alert('Please enter a message.');
+            }
 
             const { data: message, error } = await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
             if (error) {
@@ -161,11 +247,9 @@
                 return;
             }
             document.getElementById('message-content').value = '';
+            document.getElementById('message-sent-sound').play();
             fetchMessages();
         };
-
-        let lastMessageId = null;
-        let initialLoad = true; // Flag to track the initial load
 
         async function fetchMessages() {
             const { data: messages, error } = await supabase
@@ -186,40 +270,24 @@
                 if (message.users.first_name === currentUser.first_name) {
                     messageElement.classList.add('you');
                 }
+
+                const formattedDate = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                 messageElement.innerHTML = `
-            <div class="message-author">${message.users.first_name}</div>
-            <div class="message-content">${message.content}</div>
-        `;
+                    <div class="message-author">
+                        ${message.users.first_name} <span>${formattedDate}</span>
+                    </div>
+                    <div class="message-content">
+                        ${message.content.includes('http') ? `<img src="${message.content}" alt="Image">` : message.content}
+                    </div>
+                `;
                 messagesDisplay.appendChild(messageElement);
             });
 
-            // Skip playing sound on the initial load
-            if (initialLoad) {
-                initialLoad = false;
-                lastMessageId = messages.length > 0 ? messages[0].id : null;
-            } else {
-                // Check if a new message has been received
-                if (messages.length > 0 && messages[0].id !== lastMessageId) {
-                    // Play the sound
-                    document.getElementById('message-sound').play();
-                    // Update lastMessageId
-                    lastMessageId = messages[0].id;
-                }
-            }
-
-            // Automatically refresh messages every 3 seconds
-            setTimeout(fetchMessages, 3000);
+            setTimeout(fetchMessages, 3000); // Refresh messages every 3 seconds
         }
-
-        window.handleEnter = function (event) {
-            if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        };
-
-        initialize(); // Start the app by initializing the user session
     </script>
 </body>
 
 </html>
+

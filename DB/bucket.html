@@ -13,10 +13,21 @@
       margin: 10px;
       border: 1px solid #ccc;
       padding: 10px;
+      position: relative;
     }
     img {
       max-width: 200px;
       height: auto;
+    }
+    .delete-btn {
+      background-color: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      position: absolute;
+      top: 5px;
+      right: 5px;
     }
   </style>
 </head>
@@ -65,8 +76,18 @@
         imageItem.innerHTML = `
           <img src="${publicURL.data.publicUrl}" alt="${file.name}">
           <p>${file.name}</p>
+          <button class="delete-btn" data-file-name="${file.name}">Delete</button>
         `;
         imageGallery.appendChild(imageItem);
+      });
+
+      // Add event listeners to delete buttons
+      const deleteButtons = document.querySelectorAll('.delete-btn');
+      deleteButtons.forEach(button => {
+        button.addEventListener('click', async (event) => {
+          const fileName = event.target.getAttribute('data-file-name');
+          await deleteFile(fileName);
+        });
       });
     }
 
@@ -84,6 +105,20 @@
       await listFiles();
     }
 
+    // Function to delete a file
+    async function deleteFile(fileName) {
+      const { data, error } = await supabase.storage.from(bucketName).remove([fileName]);
+
+      if (error) {
+        console.error('Error deleting file:', error);
+        return;
+      }
+
+      console.log('File deleted successfully:', data);
+      // Refresh the list of files
+      await listFiles();
+    }
+
     // Listen for file input changes and upload the selected file
     fileInput.addEventListener('change', async (event) => {
       const file = event.target.files[0]; // Get the selected file
@@ -97,4 +132,5 @@
   </script>
 </body>
 </html>
+
 
