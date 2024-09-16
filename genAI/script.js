@@ -1,6 +1,6 @@
 document.getElementById('prompt-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const prompt = document.getElementById('prompt').value;
     const statusMessage = document.getElementById('status-message');
     const imageContainer = document.getElementById('image-container');
@@ -16,7 +16,9 @@ document.getElementById('prompt-form').addEventListener('submit', async (e) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                inputs: prompt
+                inputs: prompt,
+                // Optional: Add randomness using seed if supported
+                options: { seed: Math.floor(Math.random() * 1000000) }  // Use a random seed for each request
             })
         });
 
