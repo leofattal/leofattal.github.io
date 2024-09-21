@@ -3,26 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Generator</title>
+    <title>Stable Diffusion XL Image Generator</title>
+    <!-- Link to CSS file -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Generate an AI Image</h1>
-        <form id="prompt-form">
-            <label for="prompt">Enter your prompt:</label>
-            <input type="text" id="prompt" name="prompt" required>
-            <button type="submit">Generate Image</button>
-        </form>
 
-        <div id="image-container">
-            <img id="generated-image" alt="Your AI-generated image will appear here">
-        </div>
+    <form id="prompt-form">
+        <label for="prompt">Prompt:</label>
+        <input type="text" id="prompt" required placeholder="Enter your prompt">
 
-        <p id="status-message">Waiting for input...</p>
+        <label for="negative-prompt">Negative Prompt:</label>
+        <input type="text" id="negative-prompt" placeholder="Enter what you want to avoid">
+
+        <button type="submit">Generate</button>
+        <p id="status-message"></p>
+    </form>
+
+    <div id="image-container" style="display: none;">
+        <img id="generated-image" alt="Generated image will appear here" />
     </div>
 
+    <!-- Link to JavaScript file -->
     <script src="script.js"></script>
+    
 </body>
 </html>
+
+
 

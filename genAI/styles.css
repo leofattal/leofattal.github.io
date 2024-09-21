@@ -1,64 +1,75 @@
+/* General styling */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f0f5;
+    font-family: 'Arial', sans-serif;
+    background-color: #f5f5f5;
     color: #333;
-    text-align: center;
     margin: 0;
     padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-.container {
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
+/* Form styling */
+#prompt-form {
     background-color: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
     border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 300px;
 }
 
-h1 {
-    font-size: 2rem;
-    margin-bottom: 20px;
+#prompt-form label {
+    font-weight: bold;
+    margin-bottom: 5px;
 }
 
-form {
-    margin-bottom: 20px;
-}
-
-input[type="text"] {
-    width: 80%;
+#prompt-form input[type="text"] {
     padding: 10px;
-    margin-bottom: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-button {
-    padding: 10px 20px;
-    background-color: #007BFF;
+#prompt-form button {
+    background-color: #4CAF50;
     color: white;
     border: none;
+    padding: 10px 15px;
+    text-align: center;
+    font-size: 16px;
     border-radius: 4px;
     cursor: pointer;
 }
 
-button:hover {
-    background-color: #0056b3;
+#prompt-form button:hover {
+    background-color: #45a049;
 }
 
-#image-container {
-    display: none;
-    margin-top: 20px;
-}
-
-img {
-    max-width: 100%;
-    border-radius: 8px;
-}
-
+/* Status message styling */
 #status-message {
-    margin-top: 20px;
-    font-size: 1.2rem;
+    font-size: 14px;
     color: #555;
 }
+
+/* Image container styling */
+#image-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#generated-image {
+    max-width: 100%;
+    max-height: 400px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
 
