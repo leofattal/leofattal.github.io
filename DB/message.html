@@ -23,7 +23,7 @@
 
         #login-form,
         #create-account-form,
-        #message-input,
+        #message-input-container,
         #message-display {
             width: 100%;
             max-width: 400px;
@@ -42,7 +42,6 @@
         }
 
         button {
-            /* width: 100%; */
             padding: 10px;
             border: none;
             border-radius: 5px;
@@ -91,25 +90,80 @@
             margin-bottom: 5px;
         }
 
-        #message-content {
-            border-radius: 20px;
-            resize: none;
-            height: 50px;
+        .message-author span {
+            margin-left: 8px;
+            font-size: 0.85em;
+            color: #888;
+        }
+
+        #message-input-container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        #message-input {
+            display: flex;
+            align-items: center;
+            /* Align textarea and Send button */
+            width: 100%;
             margin-bottom: 10px;
-            /* Keep space between textarea and image preview */
+            /* Space between message input and other elements */
+        }
+
+        textarea#message-content {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            height: 50px;
+            resize: none;
+            margin-right: 10px;
+            /* Space between textarea and Send button */
+        }
+
+        button#send-button {
+            height: 50px;
+            /* Match the height of the textarea */
+            padding: 0 20px;
+            /* Adjust the width of the button */
+            background-color: #4a90e2;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+
+        button#send-button:hover {
+            background-color: #357abd;
         }
 
         #image-preview {
-            display: inline-block;
-            /* Ensure the div takes the width of its content */
-            margin-right: 10px
+            margin-bottom: 10px;
+            /* Space between the image preview and Upload Pic button */
         }
 
         #image-preview img {
-            width: auto;
-            /* Ensure the image keeps its natural size */
-            height: 100px;
-            /* Keep the height proportional */
+            max-width: 100%;
+            /* Ensure image is scaled to fit the container */
+            height: auto;
+            display: block;
+            margin-bottom: 10px;
+            /* Space between the image and the Upload Pic button */
+        }
+
+        #upload-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4a90e2;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+
+        #upload-button:hover {
+            background-color: #357abd;
         }
 
         #user-info {
@@ -129,29 +183,6 @@
 
         #sign-out:hover {
             text-decoration: underline;
-        }
-
-        /* Date display styling */
-        .message-author span {
-            margin-left: 8px;
-            font-size: 0.85em;
-            color: #888;
-        }
-
-        /* Styling for the image upload button and layout */
-        #message-input {
-            display: block;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-
-        #image-input,
-        #upload-button,
-        #send-button {
-            width: 100%;
-            /* Consistent button width */
-            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -187,18 +218,22 @@
         <div id="messages"></div>
     </div>
 
-    <div id="message-input" style="display: none;">
-        <!-- Textarea should always be visible -->
-        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"
-            style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; height: 50px; margin-bottom: 10px;"></textarea>
+    <div id="message-input-container" style="display: none;">
+        <div id="message-input">
+            <!-- Textarea for message input -->
+            <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
 
-        <!-- Image preview should be displayed here -->
-        <div id="image-preview"></div> <!-- Container for image preview -->
+            <!-- Send button to the right of the textarea -->
+            <button id="send-button" onclick="sendMessage()">Send</button>
+        </div>
 
-        <!-- Buttons for uploading and sending the message -->
+        <!-- Image preview will be shown here -->
+        <div id="image-preview"></div>
+
+        <!-- Upload Pic button will be here -->
+        <button id="upload-button" onclick="document.getElementById('image-input').click()">Upload Pic</button>
+
         <input type="file" id="image-input" accept="image/*" style="display: none;">
-        <button onclick="document.getElementById('image-input').click()">Upload Pic</button>
-        <button onclick="sendMessage()">Send</button>
     </div>
 
     <audio id="message-sound" src="sounds/ding.mp3" preload="auto"></audio>
