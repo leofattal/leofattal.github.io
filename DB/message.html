@@ -42,7 +42,7 @@
         }
 
         button {
-            width: 100%;
+            /* width: 100%; */
             padding: 10px;
             border: none;
             border-radius: 5px;
@@ -91,10 +91,25 @@
             margin-bottom: 5px;
         }
 
-        textarea {
+        #message-content {
             border-radius: 20px;
             resize: none;
             height: 50px;
+            margin-bottom: 10px;
+            /* Keep space between textarea and image preview */
+        }
+
+        #image-preview {
+            display: inline-block;
+            /* Ensure the div takes the width of its content */
+            margin-right: 10px
+        }
+
+        #image-preview img {
+            width: auto;
+            /* Ensure the image keeps its natural size */
+            height: 100px;
+            /* Keep the height proportional */
         }
 
         #user-info {
@@ -116,11 +131,27 @@
             text-decoration: underline;
         }
 
-        /* Additional CSS for date display */
+        /* Date display styling */
         .message-author span {
             margin-left: 8px;
             font-size: 0.85em;
             color: #888;
+        }
+
+        /* Styling for the image upload button and layout */
+        #message-input {
+            display: block;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+
+        #image-input,
+        #upload-button,
+        #send-button {
+            width: 100%;
+            /* Consistent button width */
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -152,210 +183,29 @@
         <button id="sign-out" onclick="signOut()">Sign Out</button>
     </div>
 
-    <div id="message-input" style="display: none;">
-        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"></textarea>
-        <button onclick="sendMessage()">Send</button>
+    <div id="message-display" style="display: none;">
+        <div id="messages"></div>
     </div>
 
-    <div id="message-display" style="display: none;">
-        <h2>Messages</h2>
-        <div id="messages"></div>
+    <div id="message-input" style="display: none;">
+        <!-- Textarea should always be visible -->
+        <textarea id="message-content" placeholder="Enter your message" onkeydown="handleEnter(event)"
+            style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; height: 50px; margin-bottom: 10px;"></textarea>
+
+        <!-- Image preview should be displayed here -->
+        <div id="image-preview"></div> <!-- Container for image preview -->
+
+        <!-- Buttons for uploading and sending the message -->
+        <input type="file" id="image-input" accept="image/*" style="display: none;">
+        <button onclick="document.getElementById('image-input').click()">Upload Pic</button>
+        <button onclick="sendMessage()">Send</button>
     </div>
 
     <audio id="message-sound" src="sounds/ding.mp3" preload="auto"></audio>
     <audio id="message-sent-sound" src="sounds/message_sent.mp3" preload="auto"></audio>
 
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.1.0/+esm';
+    <script src="message.js" type="module">
 
-        const supabaseUrl = 'https://zsqjmnedymplplesgyqx.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzcWptbmVkeW1wbHBsZXNneXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxNTI1NzQsImV4cCI6MjA0MDcyODU3NH0.klrVAlSHsWFZhqYZGal8-AQKKh1LTsBXrbNPGCe-d5c';
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        let currentUser;
-
-        // Handle Enter key for login
-        window.handleLoginEnter = function (event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                loginUser();
-            }
-        };
-
-        window.loginUser = async function () {
-            const username = document.getElementById('username').value;
-            const passcode = document.getElementById('passcode').value;
-
-            if (!username || !passcode) {
-                alert('Please enter both username and passcode.');
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('username', username)
-                    .eq('passcode', passcode);
-
-                if (error) throw error;
-
-                if (data.length > 0) {
-                    currentUser = data[0];
-                    document.getElementById('login-form').style.display = 'none';
-                    document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
-                    document.getElementById('user-info').style.display = 'block';
-                    document.getElementById('message-input').style.display = 'block';
-                    document.getElementById('message-display').style.display = 'block';
-                    fetchMessages();
-                } else {
-                    alert('Invalid username or passcode.');
-                }
-            } catch (err) {
-                console.error('Error logging in:', err);
-                alert('Error logging in. Please try again.');
-            }
-        };
-
-        window.createAccount = async function () {
-            const firstName = document.getElementById('first-name').value;
-            const lastName = document.getElementById('last-name').value;
-            const age = document.getElementById('age').value;
-            const username = document.getElementById('new-username').value;
-            const passcode = document.getElementById('new-passcode').value;
-
-            if (!firstName || !lastName || !age || !username || !passcode) {
-                alert('Please fill out all fields.');
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase.from('users').insert([
-                    { first_name: firstName, last_name: lastName, age, username, passcode }
-                ]).select().single();
-
-                if (error) throw error;
-
-                currentUser = data;
-                document.getElementById('create-account-form').style.display = 'none';
-                document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
-                document.getElementById('user-info').style.display = 'block';
-                document.getElementById('message-input').style.display = 'block';
-                document.getElementById('message-display').style.display = 'block';
-                fetchMessages();
-            } catch (err) {
-                console.error('Error creating account:', err);
-                alert('Error creating account. Please try again.');
-            }
-        };
-
-        window.showCreateAccountForm = function () {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('create-account-form').style.display = 'block';
-        };
-
-        window.showLoginForm = function () {
-            document.getElementById('create-account-form').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-        };
-
-        window.signOut = function () {
-            document.getElementById('user-info').style.display = 'none';
-            document.getElementById('message-input').style.display = 'none';
-            document.getElementById('message-display').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-            currentUser = null;
-        };
-
-        window.sendMessage = async function () {
-            const content = document.getElementById('message-content').value;
-            if (!content) return alert('Please enter a message');
-
-            const { data: message, error } = await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
-            if (error) {
-                console.error('Error posting message:', error);
-                return;
-            }
-            document.getElementById('message-content').value = '';
-            document.getElementById('message-sent-sound').play();  // Play sound when message is sent
-            fetchMessages();
-        };
-
-        let lastMessageId = null;
-        let initialLoad = true;
-
-        function formatPostDate(createdAt) {
-            const now = new Date();
-            const postDate = new Date(createdAt);
-
-            const timeDifference = now.getTime() - postDate.getTime();
-            const oneDay = 24 * 60 * 60 * 1000; // One day in milliseconds
-
-            if (timeDifference < oneDay && now.getDate() === postDate.getDate()) {
-                // If the post was made today, return the time in hh:mm format
-                return postDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } else if (timeDifference < 2 * oneDay && now.getDate() - postDate.getDate() === 1) {
-                // If the post was made yesterday
-                return "yesterday";
-            } else {
-                // Otherwise, show "x days ago"
-                const daysAgo = Math.floor(timeDifference / oneDay);
-                return `${daysAgo} days ago`;
-            }
-        }
-
-        async function fetchMessages() {
-            const { data: messages, error } = await supabase
-                .from('messages')
-                .select('id, content, created_at, users(first_name)')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching messages:', error);
-                return;
-            }
-
-            const messagesDisplay = document.getElementById('messages');
-            messagesDisplay.innerHTML = '';
-            messages.forEach(message => {
-                const messageElement = document.createElement('div');
-                messageElement.classList.add('message');
-                if (message.users.first_name === currentUser.first_name) {
-                    messageElement.classList.add('you');
-                }
-
-                const formattedDate = formatPostDate(message.created_at);
-
-                messageElement.innerHTML = `
-            <div class="message-author">
-                ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
-            </div>
-            <div class="message-content">${message.content}</div>
-        `;
-                messagesDisplay.appendChild(messageElement);
-            });
-
-            if (initialLoad) {
-                initialLoad = false;
-                lastMessageId = messages.length > 0 ? messages[0].id : null;
-            } else {
-                if (messages.length > 0 && messages[0].id !== lastMessageId) {
-                    if (messages[0].users.first_name !== currentUser.first_name) {
-                        document.getElementById('message-sound').play();  // Play sound if another user posts
-                    }
-                    lastMessageId = messages[0].id;
-                }
-            }
-
-            setTimeout(fetchMessages, 3000);
-        }
-
-        window.handleEnter = function (event) {
-            if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        };
     </script>
 </body>
 
