@@ -37,7 +37,7 @@ window.loginUser = async function () {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
             document.getElementById('user-info').style.display = 'block';
-            document.getElementById('message-input').style.display = 'block';
+            document.getElementById('message-input-container').style.display = 'block';
             document.getElementById('message-display').style.display = 'block';
             fetchMessages();
         } else {
@@ -72,7 +72,7 @@ window.createAccount = async function () {
         document.getElementById('create-account-form').style.display = 'none';
         document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
         document.getElementById('user-info').style.display = 'block';
-        document.getElementById('message-input').style.display = 'block';
+        document.getElementById('message-input-container').style.display = 'block';
         document.getElementById('message-display').style.display = 'block';
         fetchMessages();
     } catch (err) {
@@ -93,7 +93,7 @@ window.showLoginForm = function () {
 
 window.signOut = function () {
     document.getElementById('user-info').style.display = 'none';
-    document.getElementById('message-input').style.display = 'none';
+    document.getElementById('message-input-container').style.display = 'none';
     document.getElementById('message-display').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
     currentUser = null;
@@ -121,20 +121,43 @@ document.getElementById('image-input').addEventListener('change', async function
         uploadedImageUrl = await uploadFile(file); // Upload the image file
         if (uploadedImageUrl) {
             displayThumbnail(uploadedImageUrl); // Display the thumbnail above the upload button
+            document.getElementById('upload-button').style.display = 'none'; // Hide Upload Pic button
         } else {
             alert('Error uploading image.');
         }
     }
 });
 
-// Function to display a thumbnail of the uploaded image and hide "Upload Pic" button
+// Function to display a thumbnail of the uploaded image above the upload button
 function displayThumbnail(imageUrl) {
     const imagePreviewContainer = document.getElementById('image-preview');
-    imagePreviewContainer.innerHTML = `<img src="${imageUrl}" alt="Uploaded Image">`;
-
-    // Hide the "Upload Pic" button after showing the image preview
-    document.querySelector('button[onclick="document.getElementById(\'image-input\').click()"]').style.display = 'none';
+    imagePreviewContainer.innerHTML = `<img src="${imageUrl}" alt="Uploaded Image" style="max-width: 100%; height: auto;">`;
 }
+
+// Function to send the message or image URL
+window.sendMessage = async function () {
+    const content = document.getElementById('message-content').value;
+
+    // If there's an uploaded image, insert it first as a separate entry
+    if (uploadedImageUrl) {
+        await supabase.from('messages').insert([{ user_id: currentUser.id, content: uploadedImageUrl }]);
+    }
+
+    // Insert the text message as a separate entry if any text is entered
+    if (content.trim()) {
+        await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
+    }
+
+    // Clear the message input and remove the image preview from DOM
+    document.getElementById('message-content').value = '';
+    document.getElementById('image-preview').innerHTML = ''; // Clear the image preview
+    uploadedImageUrl = ''; // Reset the uploaded image URL
+
+    // Show the "Upload Pic" button again
+    document.getElementById('upload-button').style.display = 'block';
+
+    fetchMessages(); // Refresh the messages
+};
 
 // Function to upload a file to Supabase with duplicate handling
 async function uploadFile(file) {
@@ -158,39 +181,6 @@ async function uploadFile(file) {
         return null;
     }
 }
-
-// Function to send the message or image URL
-window.sendMessage = async function () {
-    const content = document.getElementById('message-content').value;
-
-    // If there's an uploaded image, insert it first as a separate entry
-    if (uploadedImageUrl) {
-        const { data: imageMessage, error: imageError } = await supabase.from('messages').insert([{ user_id: currentUser.id, content: uploadedImageUrl }]);
-        if (imageError) {
-            console.error('Error posting image message:', imageError);
-            return;
-        }
-    }
-
-    // Insert the text message as a separate entry if any text is entered
-    if (content.trim()) {
-        const { data: textMessage, error: textError } = await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
-        if (textError) {
-            console.error('Error posting text message:', textError);
-            return;
-        }
-    }
-
-    // Clear the message input and remove the image preview from DOM
-    document.getElementById('message-content').value = '';
-    document.getElementById('image-preview').innerHTML = ''; // Clear the image preview
-    uploadedImageUrl = ''; // Reset the uploaded image URL
-
-    // Show the "Upload Pic" button again
-    document.querySelector('button[onclick="document.getElementById(\'image-input\').click()"]').style.display = 'inline-block';
-
-    fetchMessages(); // Refresh the messages
-};
 
 // Modify the fetchMessages function to display text below the image
 async function fetchMessages() {
