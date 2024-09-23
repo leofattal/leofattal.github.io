@@ -315,15 +315,21 @@ async function fetchMessages() {
 
         const formattedDate = formatPostDate(message.created_at);
 
-        // Create image-first, text-second structure
+        let contentHtml = '';
+        if (isSingleEmoji(message.content)) {
+            // Apply a special class for single emoji
+            contentHtml = `<p style="font-size: 3em; margin: 0;">${message.content}</p>`;
+        } else {
+            // Regular message content
+            contentHtml = isImageUrl(message.content) ? `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">` : `<p>${message.content}</p>`;
+        }
+
+        // Create the final message structure
         messageElement.innerHTML = `
             <div class="message-author">
                 ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
             </div>
-            <div class="message-content">
-                ${isImageUrl(message.content) ? `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">` : ''}
-                ${!isImageUrl(message.content) ? `<p>${message.content}</p>` : ''}
-            </div>
+            <div class="message-content">${contentHtml}</div>
         `;
         messagesDisplay.appendChild(messageElement);
     });
@@ -331,11 +337,16 @@ async function fetchMessages() {
     setTimeout(fetchMessages, 3000);
 }
 
+// Utility function to check if the content is a single emoji
+function isSingleEmoji(content) {
+    const emojiRegex = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)$/u;
+    return emojiRegex.test(content.trim());
+}
+
 // Utility function to check if a string is a URL
 function isImageUrl(content) {
     return content.match(/\.(jpeg|jpg|gif|png)$/i) !== null;
 }
-
 
 let lastMessageId = null;
 let initialLoad = true;
