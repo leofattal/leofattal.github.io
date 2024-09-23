@@ -40,6 +40,7 @@ window.loginUser = async function () {
             document.getElementById('message-input-container').style.display = 'block';
             document.getElementById('message-display').style.display = 'block';
             fetchMessages();
+            attachEventListenersAfterLogin(); // Attach listeners after login is successful
         } else {
             alert('Invalid username or passcode.');
         }
@@ -48,6 +49,30 @@ window.loginUser = async function () {
         alert('Error logging in. Please try again.');
     }
 };
+
+// Create the close icon (span)
+const closeIcon = document.createElement('span');
+closeIcon.innerHTML = '&times;';
+closeIcon.style.position = 'absolute';
+closeIcon.style.top = '5px';
+closeIcon.style.right = '5px';
+closeIcon.style.background = 'rgba(255, 255, 255, 0.7)';
+closeIcon.style.padding = '5px';
+closeIcon.style.borderRadius = '50%';
+closeIcon.style.cursor = 'pointer';
+closeIcon.style.fontSize = '16px';
+closeIcon.style.fontWeight = 'bold';
+
+// Attach event listeners after login
+function attachEventListenersAfterLogin() {
+    const generateButton = document.getElementById('generate-button');
+    if (generateButton) {
+        generateButton.addEventListener('click', generateImage);
+    }
+    if (closeIcon) {
+        closeIcon.addEventListener('click', cancelPic);
+    }
+}
 
 window.createAccount = async function () {
     const firstName = document.getElementById('first-name').value;
@@ -101,12 +126,13 @@ window.signOut = function () {
 
 // Variables to handle the uploaded image URL
 let uploadedImageUrl = '';
+let genPic = false;
 
 // Add the placeholder behavior
 document.getElementById('message-content').setAttribute('data-placeholder', 'Enter your message');
 
 // Detect input in the contenteditable div and hide the placeholder
-document.getElementById('message-content').addEventListener('input', function() {
+document.getElementById('message-content').addEventListener('input', function () {
     if (this.innerHTML.trim() === '') {
         this.setAttribute('data-placeholder', 'Enter your message');
     } else {
@@ -115,9 +141,11 @@ document.getElementById('message-content').addEventListener('input', function() 
 });
 
 // Handle file input for image uploads
-document.getElementById('image-input').addEventListener('change', async function(event) {
+document.getElementById('image-input').addEventListener('change', async function (event) {
     const file = event.target.files[0]; // Get the selected file
     if (file) {
+        showLoadingSpinner();
+        document.getElementById('generate-button').style.display = 'none'; // Hide Generate Pic button
         uploadedImageUrl = await uploadFile(file); // Upload the image file
         if (uploadedImageUrl) {
             displayThumbnail(uploadedImageUrl); // Display the thumbnail above the upload button
@@ -131,7 +159,87 @@ document.getElementById('image-input').addEventListener('change', async function
 // Function to display a thumbnail of the uploaded image above the upload button
 function displayThumbnail(imageUrl) {
     const imagePreviewContainer = document.getElementById('image-preview');
-    imagePreviewContainer.innerHTML = `<img src="${imageUrl}" alt="Uploaded Image" style="max-width: 100%; height: auto;">`;
+    // Create a wrapper div for the image and close button
+    const wrapperDiv = document.createElement('div');
+    wrapperDiv.style.position = 'relative';
+    wrapperDiv.style.display = 'inline-block';
+
+    // Create the image element
+    const imgElement = document.createElement('img');
+    imgElement.src = imageUrl;
+    imgElement.alt = 'Uploaded Image';
+    imgElement.style.maxWidth = '100%';
+    imgElement.style.height = 'auto';
+
+    // Append the image and close icon to the wrapper div
+    wrapperDiv.appendChild(imgElement);
+    imgElement.onload = function () {
+        wrapperDiv.appendChild(closeIcon);
+    }
+
+    // Clear any existing content in the image preview container and add the new content
+    imagePreviewContainer.innerHTML = '';
+    imagePreviewContainer.appendChild(wrapperDiv);
+}
+
+async function cancelPic() {
+    const imagePreviewContainer = document.getElementById('image-preview');
+    imagePreviewContainer.innerHTML = '';
+    uploadedImageUrl = '';
+    genPic = false;
+    // Show the "Upload & Generate Pic" buttons again
+    document.getElementById('upload-button').style.display = 'block';
+    document.getElementById('generate-button').style.display = 'block';
+}
+
+// Function to show a loading spinner in the image-preview div
+function showLoadingSpinner() {
+    const imagePreviewContainer = document.getElementById('image-preview');
+    imagePreviewContainer.innerHTML = `<div class="spinner"></div>`; // Add CSS for spinner in your style
+}
+
+// Function to generate an image from the Hugging Face API
+async function generateImage() {
+    const prompt = document.getElementById('message-content').value;
+
+    if (!prompt.trim()) {
+        alert("Please enter a prompt to generate an image.");
+        return;
+    }
+
+    showLoadingSpinner(); // Show loading spinner while waiting for image generation
+
+    try {
+        const response = await fetch('https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer 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',  // Replace with your actual Hugging Face API key
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                inputs: prompt,
+                options: { seed: Math.floor(Math.random() * 1000000) }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const file = new File([blob], 'genAI.jpg', { type: 'image/jpeg' });
+        uploadedImageUrl = await uploadFile(file); // Upload the image file
+        if (uploadedImageUrl) {
+            genPic = true; // to signal not to send prompt in chat
+            displayThumbnail(uploadedImageUrl); // Display the generated image in the preview area
+            document.getElementById('upload-button').style.display = 'none'; // Hide Upload Pic button
+        } else {
+            alert('Error uploading image.');
+        }
+    } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Error generating image. Please try again.');
+    }
 }
 
 // Function to send the message or image URL
@@ -144,7 +252,7 @@ window.sendMessage = async function () {
     }
 
     // Insert the text message as a separate entry if any text is entered
-    if (content.trim()) {
+    if (content.trim() && !genPic) {
         await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
     }
 
@@ -152,9 +260,11 @@ window.sendMessage = async function () {
     document.getElementById('message-content').value = '';
     document.getElementById('image-preview').innerHTML = ''; // Clear the image preview
     uploadedImageUrl = ''; // Reset the uploaded image URL
+    genPic = false;
 
-    // Show the "Upload Pic" button again
+    // Show the "Upload & Generate Pic" buttons again
     document.getElementById('upload-button').style.display = 'block';
+    document.getElementById('generate-button').style.display = 'block';
 
     fetchMessages(); // Refresh the messages
 };
