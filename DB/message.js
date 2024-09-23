@@ -337,7 +337,7 @@ async function fetchMessages(initialLoad = false) {
     const messagesDisplay = document.getElementById('messages');
     messagesDisplay.innerHTML = '';
     messages.forEach(message => {
-        console.log(message);
+        // console.log(message);
         const messageElement = document.createElement('div');
         messageElement.classList.add('message');
         if (message.users.first_name === currentUser.first_name) {
