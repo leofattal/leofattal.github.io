@@ -446,7 +446,7 @@ async function deletePost(messageId, messageElement) {
         messageElement.remove();
 
         // Optionally, you can show a success message
-        alert('Message deleted successfully.');
+        //alert('Message deleted successfully.');
     } catch (err) {
         console.error('Error deleting post:', err);
         alert('An error occurred while deleting the message.');
