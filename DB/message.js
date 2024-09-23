@@ -126,7 +126,6 @@ window.signOut = function () {
 
 // Variables to handle the uploaded image URL
 let uploadedImageUrl = '';
-let genPic = false;
 
 // Add the placeholder behavior
 document.getElementById('message-content').setAttribute('data-placeholder', 'Enter your message');
@@ -186,7 +185,6 @@ async function cancelPic() {
     const imagePreviewContainer = document.getElementById('image-preview');
     imagePreviewContainer.innerHTML = '';
     uploadedImageUrl = '';
-    genPic = false;
     // Show the "Upload & Generate Pic" buttons again
     document.getElementById('upload-button').style.display = 'block';
     document.getElementById('generate-button').style.display = 'block';
@@ -208,9 +206,12 @@ async function generateImage() {
     }
 
     showLoadingSpinner(); // Show loading spinner while waiting for image generation
+    const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev';
+    // const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell';
+    // const endpoint = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0';
 
     try {
-        const response = await fetch('https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0', {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer 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',  // Replace with your actual Hugging Face API key
@@ -230,7 +231,6 @@ async function generateImage() {
         const file = new File([blob], 'genAI.jpg', { type: 'image/jpeg' });
         uploadedImageUrl = await uploadFile(file); // Upload the image file
         if (uploadedImageUrl) {
-            genPic = true; // to signal not to send prompt in chat
             displayThumbnail(uploadedImageUrl); // Display the generated image in the preview area
             document.getElementById('upload-button').style.display = 'none'; // Hide Upload Pic button
         } else {
@@ -246,21 +246,27 @@ async function generateImage() {
 window.sendMessage = async function () {
     const content = document.getElementById('message-content').value;
 
-    // If there's an uploaded image, insert it first as a separate entry
+    // Initialize the messageData as the content string (in case there's no image)
+    let messageData = content.trim();
+
+    // If there's an uploaded image, create a JSON structure with the image URL and message content
     if (uploadedImageUrl) {
-        await supabase.from('messages').insert([{ user_id: currentUser.id, content: uploadedImageUrl }]);
+        messageData = {
+            image_url: uploadedImageUrl,
+            content: content.trim() // Keep it in case there's text as well
+        };
     }
 
-    // Insert the text message as a separate entry if any text is entered
-    if (content.trim() && !genPic) {
-        await supabase.from('messages').insert([{ user_id: currentUser.id, content }]);
-    }
+    // Insert the message as either a string or a JSON object depending on whether there's an image
+    await supabase.from('messages').insert([{
+        user_id: currentUser.id,
+        content: typeof messageData === 'string' ? messageData : JSON.stringify(messageData)
+    }]);
 
     // Clear the message input and remove the image preview from DOM
     document.getElementById('message-content').value = '';
     document.getElementById('image-preview').innerHTML = ''; // Clear the image preview
     uploadedImageUrl = ''; // Reset the uploaded image URL
-    genPic = false;
 
     // Show the "Upload & Generate Pic" buttons again
     document.getElementById('upload-button').style.display = 'block';
@@ -316,21 +322,42 @@ async function fetchMessages() {
         const formattedDate = formatPostDate(message.created_at);
 
         let contentHtml = '';
-        if (isSingleEmoji(message.content)) {
-            // Apply a special class for single emoji
-            contentHtml = `<p style="font-size: 3em; margin: 0;">${message.content}</p>`;
-        } else {
-            // Regular message content
-            contentHtml = isImageUrl(message.content) ? `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">` : `<p>${message.content}</p>`;
+
+        try {
+            // Attempt to parse the content as JSON
+            const messageData = JSON.parse(message.content);
+
+            if (messageData.image_url) {
+                // If there is an image URL in the JSON, display the image
+                contentHtml += `<img src="${messageData.image_url}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+            }
+
+            if (messageData.content) {
+                // If there is text content in the JSON, display it under the image
+                contentHtml += `<p>${messageData.content}</p>`;
+            }
+        } catch (e) {
+            // If parsing fails, the content is not JSON, handle it as a string
+            if (isImageUrl(message.content)) {
+                // If the content is an image URL, display the image
+                contentHtml = `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+            } else if (isSingleEmoji(message.content)) {
+                // If it's a single emoji, display it with special formatting
+                contentHtml = `<p style="font-size: 3em; margin: 0;">${message.content}</p>`;
+            } else {
+                // Otherwise, treat it as regular text content
+                contentHtml = `<p>${message.content}</p>`;
+            }
         }
 
-        // Create the final message structure
+        // Create the final message structure with the message content
         messageElement.innerHTML = `
-            <div class="message-author">
-                ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
-            </div>
-            <div class="message-content">${contentHtml}</div>
-        `;
+    <div class="message-author">
+        ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
+    </div>
+    <div class="message-content" style="max-width: 200px;">${contentHtml}</div>
+`;
+
         messagesDisplay.appendChild(messageElement);
     });
 
@@ -347,9 +374,6 @@ function isSingleEmoji(content) {
 function isImageUrl(content) {
     return content.match(/\.(jpeg|jpg|gif|png)$/i) !== null;
 }
-
-let lastMessageId = null;
-let initialLoad = true;
 
 function formatPostDate(createdAt) {
     const now = new Date();
