@@ -72,6 +72,15 @@ function attachEventListenersAfterLogin() {
     if (closeIcon) {
         closeIcon.addEventListener('click', cancelPic);
     }
+    const messagesDisplay = document.getElementById('messages');
+    messagesDisplay.addEventListener('scroll', () => {
+        // Check if the user has scrolled to the bottom of the feed
+        
+        if (messagesDisplay.scrollTop === 0) {
+            console.log('scrolling...');
+            //loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
+        }
+    });
 }
 
 window.createAccount = async function () {
@@ -99,7 +108,7 @@ window.createAccount = async function () {
         document.getElementById('user-info').style.display = 'block';
         document.getElementById('message-input-container').style.display = 'block';
         document.getElementById('message-display').style.display = 'block';
-        fetchMessages();
+        fetchMessages(true);
     } catch (err) {
         console.error('Error creating account:', err);
         alert('Error creating account. Please try again.');
@@ -272,7 +281,7 @@ window.sendMessage = async function () {
     document.getElementById('upload-button').style.display = 'block';
     document.getElementById('generate-button').style.display = 'block';
 
-    fetchMessages(); // Refresh the messages
+    fetchMessages(true); // Refresh the messages
 };
 
 // Function to upload a file to Supabase with duplicate handling
@@ -299,11 +308,15 @@ async function uploadFile(file) {
 }
 
 // Modify the fetchMessages function to display text below the image
-async function fetchMessages() {
+let lastMessageId = null;  // Keep track of the last loaded message ID
+async function fetchMessages(initialLoad = false) {
     const { data: messages, error } = await supabase
         .from('messages')
         .select('id, content, created_at, users(first_name)')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50)  // Fetch only 50 messages
+        .gt('id', lastMessageId || 0);  // Load only messages with id greater than the last loaded one
+    ;
 
     if (error) {
         console.error('Error fetching messages:', error);
@@ -452,3 +465,94 @@ async function deletePost(messageId, messageElement) {
         alert('An error occurred while deleting the message.');
     }
 }
+
+async function loadMoreMessages() {
+    // Fetch older messages (before the last loaded message ID)
+    const { data: messages, error } = await supabase
+        .from('messages')
+        .select('id, content, created_at, users(first_name)')
+        .order('created_at', { ascending: false })
+        .limit(10)
+        .lt('id', lastMessageId);  // Load messages older than the last loaded one
+
+    if (error) {
+        console.error('Error loading more messages:', error);
+        return;
+    }
+
+    const messagesDisplay = document.getElementById('messages');
+
+    // Append the older messages to the feed
+    messages.forEach(message => {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+
+        if (message.users.first_name === currentUser.first_name) {
+            messageElement.classList.add('you');
+        }
+
+        const formattedDate = formatPostDate(message.created_at);
+
+        let contentHtml = '';
+
+        try {
+            // Attempt to parse the content as JSON
+            const messageData = JSON.parse(message.content);
+
+            if (messageData.image_url) {
+                // If there is an image URL in the JSON, display the image
+                contentHtml += `<img src="${messageData.image_url}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+            }
+
+            if (messageData.content) {
+                // If there is text content in the JSON, display it under the image
+                contentHtml += `<p>${messageData.content}</p>`;
+            }
+        } catch (e) {
+            // If parsing fails, the content is not JSON, handle it as a string
+            if (isImageUrl(message.content)) {
+                // If the content is an image URL, display the image
+                contentHtml = `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+            } else if (isSingleEmoji(message.content)) {
+                // If it's a single emoji, display it with special formatting
+                contentHtml = `<p style="font-size: 3em; margin: 0;">${message.content}</p>`;
+            } else {
+                // Otherwise, treat it as regular text content
+                contentHtml = `<p>${message.content}</p>`;
+            }
+        }
+
+        // Create the final message structure with the message content
+        messageElement.innerHTML = `
+        <div class="message-author">
+            ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
+        </div>
+        <div class="message-content" style="max-width: 200px;">${contentHtml}</div>
+        `;
+
+        // If it's the current user's message, add right-click/long press event for deletion
+        if (message.users.first_name === currentUser.first_name) {
+            // Right-click for desktop
+            messageElement.addEventListener('contextmenu', function (event) {
+                event.preventDefault();
+                confirmDelete(message.id, messageElement);
+            });
+
+            // Long-press for mobile (optional)
+            let pressTimer;
+            messageElement.addEventListener('touchstart', function (event) {
+                pressTimer = setTimeout(() => confirmDelete(message.id, messageElement), 800); // Long press triggers after 800ms
+            });
+
+            messageElement.addEventListener('touchend', function () {
+                clearTimeout(pressTimer); // Cancel long press if touch ends before 800ms
+            });
+        }
+
+        messagesDisplay.appendChild(messageElement);
+
+        // Update lastMessageId to the latest message ID
+        lastMessageId = message.id;
+    });
+}
+
