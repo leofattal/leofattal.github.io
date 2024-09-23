@@ -352,12 +352,30 @@ async function fetchMessages() {
 
         // Create the final message structure with the message content
         messageElement.innerHTML = `
-    <div class="message-author">
-        ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
-    </div>
-    <div class="message-content" style="max-width: 200px;">${contentHtml}</div>
-`;
+        <div class="message-author">
+            ${message.users.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
+        </div>
+        <div class="message-content" style="max-width: 200px;">${contentHtml}</div>
+        `;
 
+        // If it's the current user's message, add right-click/long press event for deletion
+        if (message.users.first_name === currentUser.first_name) {
+            // Right-click for desktop
+            messageElement.addEventListener('contextmenu', function (event) {
+                event.preventDefault();
+                confirmDelete(message.id, messageElement);
+            });
+
+            // Long-press for mobile (optional)
+            let pressTimer;
+            messageElement.addEventListener('touchstart', function (event) {
+                pressTimer = setTimeout(() => confirmDelete(message.id, messageElement), 800); // Long press triggers after 800ms
+            });
+
+            messageElement.addEventListener('touchend', function () {
+                clearTimeout(pressTimer); // Cancel long press if touch ends before 800ms
+            });
+        }
         messagesDisplay.appendChild(messageElement);
     });
 
@@ -401,3 +419,36 @@ window.handleEnter = function (event) {
         sendMessage();
     }
 };
+
+function confirmDelete(messageId, messageElement) {
+    const confirmDelete = confirm("Are you sure you want to delete this post?");
+    if (confirmDelete) {
+        // Call the function to delete the post from the database
+        deletePost(messageId, messageElement);
+    }
+}
+
+async function deletePost(messageId, messageElement) {
+    try {
+        // Delete the message from Supabase
+        const { error } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', messageId);
+
+        if (error) {
+            console.error('Error deleting message:', error);
+            alert('Failed to delete the message. Please try again.');
+            return;
+        }
+
+        // Remove the message from the UI
+        messageElement.remove();
+
+        // Optionally, you can show a success message
+        alert('Message deleted successfully.');
+    } catch (err) {
+        console.error('Error deleting post:', err);
+        alert('An error occurred while deleting the message.');
+    }
+}
