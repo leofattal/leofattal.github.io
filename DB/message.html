@@ -151,7 +151,7 @@
             /* Space between the image and the Upload Pic button */
         }
 
-        #upload-button {
+        #upload-button, #generate-button {
             display: block;
             width: 100%;
             padding: 10px;
@@ -184,6 +184,26 @@
         #sign-out:hover {
             text-decoration: underline;
         }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4a90e2;
+            animation: spin 1s ease infinite;
+            margin: auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -194,8 +214,8 @@
         <h2>Login</h2>
         <input type="text" id="username" placeholder="Username" required>
         <input type="password" id="passcode" placeholder="Passcode" required onkeydown="handleLoginEnter(event)">
-        <button onclick="loginUser()">Login</button> <!-- Login Button -->
-        <button onclick="showCreateAccountForm()">Create New Account</button> <!-- Create New Account Button -->
+        <button onclick="loginUser()" style="width: 100%">Login</button> <!-- Login Button -->
+        <button onclick="showCreateAccountForm()" style="width: 100%">Create New Account</button> <!-- Create New Account Button -->
     </div>
 
     <div id="create-account-form" style="display: none;">
@@ -231,7 +251,10 @@
         <div id="image-preview"></div>
 
         <!-- Upload Pic button will be here -->
-        <button id="upload-button" onclick="document.getElementById('image-input').click()">Upload Pic</button>
+        <button id="upload-button" onclick="document.getElementById('image-input').click()">⬆︎ Upload Pic ⬆︎</button>
+
+        <!-- Add this button below the Upload Pic button -->
+        <button id="generate-button">✨ Generate Pic ✨</button>
 
         <input type="file" id="image-input" accept="image/*" style="display: none;">
     </div>
@@ -239,9 +262,7 @@
     <audio id="message-sound" src="sounds/ding.mp3" preload="auto"></audio>
     <audio id="message-sent-sound" src="sounds/message_sent.mp3" preload="auto"></audio>
 
-    <script src="message.js" type="module">
-
-    </script>
+    <script src="message.js" type="module"></script>
 </body>
 
 </html>
