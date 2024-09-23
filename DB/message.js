@@ -6,6 +6,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentUser;
 
+// Subscribe to real-time messages
+supabase
+    .channel('public:messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        const newMessage = payload.new;
+        displayRealTimeMessage(newMessage);  // Call the function to display the new message
+    })
+    .subscribe();
+
 // Handle Enter key for login
 window.handleLoginEnter = function (event) {
     if (event.key === "Enter") {
@@ -75,7 +84,7 @@ function attachEventListenersAfterLogin() {
     const messagesDisplay = document.getElementById('messages');
     messagesDisplay.addEventListener('scroll', () => {
         // Check if the user has scrolled to the bottom of the feed
-        
+
         if (messagesDisplay.scrollTop === 0) {
             console.log('scrolling...');
             //loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
@@ -392,7 +401,53 @@ async function fetchMessages(initialLoad = false) {
         messagesDisplay.appendChild(messageElement);
     });
 
-    setTimeout(fetchMessages, 3000);
+    // setTimeout(fetchMessages, 3000);
+}
+
+// Function to display new messages in real-time
+function displayRealTimeMessage(message) {
+    const messagesDisplay = document.getElementById('messages');
+
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+
+    if (message.users.first_name === currentUser.first_name) {
+        messageElement.classList.add('you');
+    }
+
+    const formattedDate = formatPostDate(message.created_at);
+
+    let contentHtml = '';
+
+    try {
+        // Attempt to parse the content as JSON
+        const messageData = JSON.parse(message.content);
+
+        if (messageData.image_url) {
+            // If there is an image URL in the JSON, display the image
+            contentHtml += `<img src="${messageData.image_url}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+        }
+
+        if (messageData.content) {
+            // If there is text content in the JSON, display it under the image
+            contentHtml += `<p>${messageData.content}</p>`;
+        }
+    } catch (e) {
+        // If parsing fails, the content is not JSON, handle it as a string
+        if (isImageUrl(message.content)) {
+            // If the content is an image URL, display the image
+            contentHtml = `<img src="${message.content}" alt="Image" style="max-width: 200px; display: block; margin-bottom: 10px;">`;
+        } else if (isSingleEmoji(message.content)) {
+            // If it's a single emoji, display it with special formatting
+            contentHtml = `<p style="font-size: 3em; margin: 0;">${message.content}</p>`;
+        } else {
+            // Otherwise, treat it as regular text content
+            contentHtml = `<p>${message.content}</p>`;
+        }
+    }
+
+    // Append the new message to the message feed
+    messagesDisplay.appendChild(messageElement);
 }
 
 // Utility function to check if the content is a single emoji
