@@ -11,7 +11,8 @@ supabase
     .channel('public:messages')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const newMessage = payload.new;
-        displayRealTimeMessage(newMessage);  // Call the function to display the new message
+        console.log(payload);
+        // displayRealTimeMessage(newMessage);  // Call the function to display the new message
     })
     .subscribe();
 
@@ -318,6 +319,7 @@ async function uploadFile(file) {
 
 // Modify the fetchMessages function to display text below the image
 let lastMessageId = null;  // Keep track of the last loaded message ID
+
 async function fetchMessages(initialLoad = false) {
     const { data: messages, error } = await supabase
         .from('messages')
@@ -335,6 +337,7 @@ async function fetchMessages(initialLoad = false) {
     const messagesDisplay = document.getElementById('messages');
     messagesDisplay.innerHTML = '';
     messages.forEach(message => {
+        console.log(message);
         const messageElement = document.createElement('div');
         messageElement.classList.add('message');
         if (message.users.first_name === currentUser.first_name) {
@@ -401,7 +404,7 @@ async function fetchMessages(initialLoad = false) {
         messagesDisplay.appendChild(messageElement);
     });
 
-    // setTimeout(fetchMessages, 3000);
+    setTimeout(fetchMessages, 3000);
 }
 
 // Function to display new messages in real-time
