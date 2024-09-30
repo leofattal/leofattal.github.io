@@ -26,6 +26,21 @@ window.handleLoginEnter = function (event) {
     }
 };
 
+window.onload = function () {
+    const storedUser = sessionStorage.getItem('user');
+
+    if (storedUser) {
+        // Automatically log the user in
+        currentUser = JSON.parse(storedUser);
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('message-input-container').style.display = 'block';
+        document.getElementById('message-display').style.display = 'block';
+        attachEventListenersAfterLogin(); // Attach listeners after login is successful
+    } 
+};
+
 window.loginUser = async function () {
     const username = document.getElementById('username').value;
     const passcode = document.getElementById('passcode').value;
@@ -45,7 +60,11 @@ window.loginUser = async function () {
         if (error) throw error;
 
         if (data.length > 0) {
-            currentUser = data[0];
+            const user = data[0];
+            // If login successful, store user in sessionStorage
+            sessionStorage.setItem('user', JSON.stringify(user));  // Save the user data
+            currentUser = user;  // Update the currentUser variable
+
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('user-name').textContent = `${currentUser.first_name} ${currentUser.last_name}`;
             document.getElementById('user-info').style.display = 'block';
@@ -92,7 +111,7 @@ function attachEventListenersAfterLogin() {
             //loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
         }
     });
-    
+
     document.getElementById('chatroom-management').style.display = 'block';
     fetchChatrooms();  // Show available chatrooms to join
     fetchMessages();
