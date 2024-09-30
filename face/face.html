@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Tracking App</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0; /* Background color */
+        }
+        #video, #canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Centering */
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+        }
+        video {
+            opacity: 0.5; /* Lower opacity for background visibility */
+        }
+        canvas {
+            z-index: 1; /* Ensure canvas is on top of video */
+        }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay hidden></video>
+    <canvas id="canvas"></canvas>
+
+    <script src="face.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
