@@ -22,6 +22,13 @@ h1 {
     /* Center align the header */
 }
 
+#app-logo {
+    width: 200px;  /* Set the same height as the h1 element */
+    display: block;  /* Make sure it's displayed as a block to avoid extra padding/margin */
+    margin: 0 auto;  /* Center the image */
+    margin-bottom: 20px;
+}
+
 #login-form,
 #create-account-form,
 #message-input-container,
