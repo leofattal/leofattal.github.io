@@ -36,9 +36,9 @@
             height: 100,
             speed: 0,
             angle: 0,
-            acceleration: 0.02,
-            maxSpeed: 0.08,
-            friction: 0.000009,
+            acceleration: 0.2,
+            maxSpeed: 1000,
+            friction: 0.05,
             image: new Image(),
             coins: 0,
             driver: 'human'
@@ -46,7 +46,7 @@
 
 
         const aiCars = [];
-        const numberOfAICars =5000;
+        const numberOfAICars =0;
 
         for (let i = 0; i < numberOfAICars; i++) {
             aiCars.push({
