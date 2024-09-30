@@ -132,10 +132,10 @@ function attachEventListenersAfterLogin() {
     const messagesDisplay = document.getElementById('messages');
     messagesDisplay.addEventListener('scroll', () => {
         // Check if the user has scrolled to the bottom of the feed
-
-        if (messagesDisplay.scrollTop === 0) {
+        // console.log(messagesDisplay.clientHeight - messagesDisplay.scrollTop, messagesDisplay.scrollHeight );
+        if (Math.ceil(Math.abs(messagesDisplay.scrollTop - messagesDisplay.clientHeight)) === messagesDisplay.scrollHeight) {
             console.log('scrolling...');
-            //loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
+            loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
         }
     });
 
@@ -474,7 +474,7 @@ async function fetchMessages(initialLoad = false) {
         .from('messages')
         .select('id, content, created_at, users(first_name)')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(20);
 
     // If currentChatroomId is not set (general chatroom), fetch messages with chatroom_id IS NULL
     if (currentChatroomId === null) {
@@ -561,7 +561,10 @@ async function fetchMessages(initialLoad = false) {
         messageElement.id = `message-${message.id}`;
         messagesDisplay.appendChild(messageElement);
     });
-
+    // Update lastMessageId to the **oldest message ID** in the current batch
+    if (messages.length > 0) {
+        lastMessageId = messages[messages.length - 1].id;  // Oldest message ID
+    }
     // setTimeout(fetchMessages, 3000);
 }
 
@@ -737,16 +740,25 @@ async function deletePost(messageId, messageElement) {
 }
 
 async function loadMoreMessages() {
-    // Fetch older messages (before the last loaded message ID)
-    const { data: messages, error } = await supabase
+
+    let query = supabase
         .from('messages')
         .select('id, content, created_at, users(first_name)')
         .order('created_at', { ascending: false })
         .limit(10)
         .lt('id', lastMessageId);  // Load messages older than the last loaded one
 
+    // If currentChatroomId is not set (general chatroom), fetch messages with chatroom_id IS NULL
+    if (currentChatroomId === null) {
+        query = query.is('chatroom_id', null);  // Use `is` to handle NULL
+    } else {
+        query = query.eq('chatroom_id', currentChatroomId);  // Specific chatroom
+    }
+
+    const { data: messages, error } = await query;
+
     if (error) {
-        console.error('Error loading more messages:', error);
+        console.error('Error fetching messages:', error);
         return;
     }
 
@@ -820,9 +832,10 @@ async function loadMoreMessages() {
         }
 
         messagesDisplay.appendChild(messageElement);
-
-        // Update lastMessageId to the latest message ID
-        lastMessageId = message.id;
     });
+    // Update lastMessageId to the **oldest message ID** in the newly fetched batch
+    if (messages.length > 0) {
+        lastMessageId = messages[messages.length - 1].id;  // Oldest message ID
+    }
 }
 
