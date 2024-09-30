@@ -5,6 +5,8 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentUser;
+let currentChatroomId = null;  // Track current chatroom ID
+let currentChatroomName = 'General Chat';  // Default name
 
 // Subscribe to real-time messages
 supabase
@@ -49,7 +51,6 @@ window.loginUser = async function () {
             document.getElementById('user-info').style.display = 'block';
             document.getElementById('message-input-container').style.display = 'block';
             document.getElementById('message-display').style.display = 'block';
-            fetchMessages();
             attachEventListenersAfterLogin(); // Attach listeners after login is successful
         } else {
             alert('Invalid username or passcode.');
@@ -62,16 +63,6 @@ window.loginUser = async function () {
 
 // Create the close icon (span)
 const closeIcon = document.createElement('span');
-closeIcon.innerHTML = '&times;';
-closeIcon.style.position = 'absolute';
-closeIcon.style.top = '5px';
-closeIcon.style.right = '5px';
-closeIcon.style.background = 'rgba(255, 255, 255, 0.7)';
-closeIcon.style.padding = '5px';
-closeIcon.style.borderRadius = '50%';
-closeIcon.style.cursor = 'pointer';
-closeIcon.style.fontSize = '16px';
-closeIcon.style.fontWeight = 'bold';
 
 // Attach event listeners after login
 function attachEventListenersAfterLogin() {
@@ -80,6 +71,16 @@ function attachEventListenersAfterLogin() {
         generateButton.addEventListener('click', generateImage);
     }
     if (closeIcon) {
+        closeIcon.innerHTML = '&times;';
+        closeIcon.style.position = 'absolute';
+        closeIcon.style.top = '5px';
+        closeIcon.style.right = '5px';
+        closeIcon.style.background = 'rgba(255, 255, 255, 0.7)';
+        closeIcon.style.padding = '5px';
+        closeIcon.style.borderRadius = '50%';
+        closeIcon.style.cursor = 'pointer';
+        closeIcon.style.fontSize = '16px';
+        closeIcon.style.fontWeight = 'bold';
         closeIcon.addEventListener('click', cancelPic);
     }
     const messagesDisplay = document.getElementById('messages');
@@ -91,6 +92,10 @@ function attachEventListenersAfterLogin() {
             //loadMoreMessages();  // Load more messages when the user reaches the bottom of the feed
         }
     });
+    
+    document.getElementById('chatroom-management').style.display = 'block';
+    fetchChatrooms();  // Show available chatrooms to join
+    fetchMessages();
 }
 
 window.createAccount = async function () {
@@ -142,6 +147,113 @@ window.signOut = function () {
     document.getElementById('login-form').style.display = 'block';
     currentUser = null;
 };
+
+// Function to create a new chatroom
+window.createChatroom = async function () {
+    const chatroomName = document.getElementById('new-chatroom-name').value;
+
+    if (!chatroomName) {
+        alert('Please enter a chatroom name.');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('chatroom')
+            .insert([{ name: chatroomName }])
+            .select().single();
+
+        if (error) throw error;
+
+        alert(`Chatroom "${chatroomName}" created successfully!`);
+        currentChatroomId = data.id;  // Set the new chatroom ID
+        currentChatroomName = chatroomName;  // Set the new chatroom name
+        updateChatroomHeader();  // Update the h1 element
+        fetchMessages();  // Load messages for the new chatroom
+        document.getElementById('new-chatroom-name').value = '';  // Clear the input
+    } catch (err) {
+        console.error('Error creating chatroom:', err);
+        alert('Error creating chatroom. Please try again.');
+    }
+};
+
+// Function to join a chatroom
+window.joinChatroom = async function (chatroomId, chatroomName) {
+    try {
+        const { error } = await supabase
+            .from('chatroom_participants')
+            .insert([{ user_id: currentUser.id, chatroom_id: chatroomId }]);
+
+        if (error) throw error;
+
+        currentChatroomId = chatroomId;  // Set the joined chatroom ID
+        currentChatroomName = chatroomName;  // Set the joined chatroom name
+        updateChatroomHeader();  // Update the h1 element
+        fetchMessages();  // Load messages from the new chatroom
+    } catch (err) {
+        console.error('Error joining chatroom:', err);
+        alert('Error joining chatroom. Please try again.');
+    }
+};
+
+// Show input field and submit button
+window.showCreateChatroomInput = function () {
+    document.getElementById('new-chatroom-name').style.display = 'block';  // Show input field
+    document.querySelector('button[onclick="createChatroom()"]').style.display = 'block';  // Show submit button
+};
+
+// Fetch available chatrooms and add them to the dropdown
+window.fetchChatrooms = async function () {
+    const { data: chatrooms, error } = await supabase.from('chatroom').select();
+
+    if (error) {
+        console.error('Error fetching chatrooms:', error);
+        return;
+    }
+
+    const chatroomDropdown = document.getElementById('chatroom-dropdown');
+    chatroomDropdown.innerHTML = ''; // Clear current dropdown options
+
+    // Add the "General Chat" option
+    const generalOption = document.createElement('option');
+    generalOption.value = 'general';
+    generalOption.textContent = 'General Chat';
+    chatroomDropdown.appendChild(generalOption);
+
+    // Add available chatrooms to the dropdown
+    chatrooms.forEach(chatroom => {
+        const option = document.createElement('option');
+        option.value = chatroom.id; // Use chatroom ID as value
+        option.textContent = chatroom.name; // Display chatroom name
+        chatroomDropdown.appendChild(option);
+    });
+};
+
+// Handle chatroom selection change
+window.handleChatroomChange = function () {
+    const chatroomDropdown = document.getElementById('chatroom-dropdown');
+    const selectedChatroomId = chatroomDropdown.value;
+
+    if (selectedChatroomId === 'general') {
+        // Set currentChatroomId to null for General Chat
+        currentChatroomId = null;
+        currentChatroomName = 'General Chat';
+    } else {
+        // Set the current chatroom ID and name based on the selection
+        currentChatroomId = selectedChatroomId;
+        currentChatroomName = chatroomDropdown.options[chatroomDropdown.selectedIndex].text;
+    }
+
+    // Update the header and fetch messages for the selected chatroom
+    updateChatroomHeader();
+    fetchMessages();
+};
+
+// Function to update the h1 element with the current chatroom name
+function updateChatroomHeader() {
+    const chatroomHeader = document.querySelector('h1');
+    chatroomHeader.textContent = currentChatroomName;
+}
 
 // Variables to handle the uploaded image URL
 let uploadedImageUrl = '';
@@ -274,12 +386,15 @@ window.sendMessage = async function () {
             image_url: uploadedImageUrl,
             content: content.trim() // Keep it in case there's text as well
         };
+    } else {
+        if (!messageData) return; // do nothing if no image and no text
     }
 
     // Insert the message as either a string or a JSON object depending on whether there's an image
     await supabase.from('messages').insert([{
         user_id: currentUser.id,
-        content: typeof messageData === 'string' ? messageData : JSON.stringify(messageData)
+        content: typeof messageData === 'string' ? messageData : JSON.stringify(messageData),
+        chatroom_id: currentChatroomId  // Use the currently active chatroom ID
     }]);
 
     // Clear the message input and remove the image preview from DOM
@@ -321,13 +436,20 @@ async function uploadFile(file) {
 let lastMessageId = null;  // Keep track of the last loaded message ID
 
 async function fetchMessages(initialLoad = false) {
-    const { data: messages, error } = await supabase
+    let query = supabase
         .from('messages')
         .select('id, content, created_at, users(first_name)')
         .order('created_at', { ascending: false })
-        .limit(50)  // Fetch only 50 messages
-        .gt('id', lastMessageId || 0);  // Load only messages with id greater than the last loaded one
-    ;
+        .limit(50);
+
+    // If currentChatroomId is not set (general chatroom), fetch messages with chatroom_id IS NULL
+    if (currentChatroomId === null) {
+        query = query.is('chatroom_id', null);  // Use `is` to handle NULL
+    } else {
+        query = query.eq('chatroom_id', currentChatroomId);  // Specific chatroom
+    }
+
+    const { data: messages, error } = await query;
 
     if (error) {
         console.error('Error fetching messages:', error);
