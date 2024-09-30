@@ -8,15 +8,38 @@ let currentUser;
 let currentChatroomId = null;  // Track current chatroom ID
 let currentChatroomName = 'General Chat';  // Default name
 
-// Subscribe to real-time messages
-supabase
-    .channel('public:messages')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const newMessage = payload.new;
-        console.log(payload);
-        // displayRealTimeMessage(newMessage);  // Call the function to display the new message
-    })
-    .subscribe();
+let messageSubscription; // Variable to track current subscription
+
+function subscribeToChatroomMessages(chatroomId) {
+    // Unsubscribe from the previous subscription, if any
+    if (messageSubscription) {
+        messageSubscription.unsubscribe();
+    }
+
+    // Subscribe to the new chatroom
+    supabase
+        .channel('insert-db-changes')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+            //filter: chatroomId ? `chatroom_id=eq.${chatroomId}` : 'chatroom_id=is.null' // General chatroom has null chatroom_id
+        }, payload => {
+            const newMessage = payload.new;
+            console.log(newMessage);
+            displayRealTimeMessage(newMessage); // Add the new message to the feed
+        })
+        .subscribe();
+
+    // Subscribe to real-time DELETE (message deletions)
+    supabase
+        .channel('delete-db-changes')
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+            const deletedMessage = payload.old;
+            removeDeletedMessageFromUI(deletedMessage.id); // Remove the deleted message from the UI
+        })
+        .subscribe();
+}
 
 // Handle Enter key for login
 window.handleLoginEnter = function (event) {
@@ -37,8 +60,12 @@ window.onload = function () {
         document.getElementById('user-info').style.display = 'block';
         document.getElementById('message-input-container').style.display = 'block';
         document.getElementById('message-display').style.display = 'block';
+
+        // Subscribe to the General Chatroom real-time updates
+        currentChatroomId = null;  // General chatroom has chatroom_id null
+        subscribeToChatroomMessages(currentChatroomId);  // Subscribe to General Chat
         attachEventListenersAfterLogin(); // Attach listeners after login is successful
-    } 
+    }
 };
 
 window.loginUser = async function () {
@@ -187,7 +214,6 @@ window.createChatroom = async function () {
         alert(`Chatroom "${chatroomName}" created successfully!`);
         currentChatroomId = data.id;  // Set the new chatroom ID
         currentChatroomName = chatroomName;  // Set the new chatroom name
-        updateChatroomHeader();  // Update the h1 element
         fetchMessages();  // Load messages for the new chatroom
         document.getElementById('new-chatroom-name').value = '';  // Clear the input
     } catch (err) {
@@ -207,7 +233,6 @@ window.joinChatroom = async function (chatroomId, chatroomName) {
 
         currentChatroomId = chatroomId;  // Set the joined chatroom ID
         currentChatroomName = chatroomName;  // Set the joined chatroom name
-        updateChatroomHeader();  // Update the h1 element
         fetchMessages();  // Load messages from the new chatroom
     } catch (err) {
         console.error('Error joining chatroom:', err);
@@ -248,31 +273,21 @@ window.fetchChatrooms = async function () {
     });
 };
 
-// Handle chatroom selection change
 window.handleChatroomChange = function () {
     const chatroomDropdown = document.getElementById('chatroom-dropdown');
     const selectedChatroomId = chatroomDropdown.value;
 
     if (selectedChatroomId === 'general') {
-        // Set currentChatroomId to null for General Chat
-        currentChatroomId = null;
+        currentChatroomId = null;  // General chat has null chatroom_id
         currentChatroomName = 'General Chat';
     } else {
-        // Set the current chatroom ID and name based on the selection
         currentChatroomId = selectedChatroomId;
         currentChatroomName = chatroomDropdown.options[chatroomDropdown.selectedIndex].text;
     }
 
-    // Update the header and fetch messages for the selected chatroom
-    updateChatroomHeader();
-    fetchMessages();
+    fetchMessages();  // Optionally fetch the last few messages for the new chatroom
+    subscribeToChatroomMessages(currentChatroomId);  // Subscribe to real-time updates for the new chatroom
 };
-
-// Function to update the h1 element with the current chatroom name
-function updateChatroomHeader() {
-    const chatroomHeader = document.querySelector('h1');
-    chatroomHeader.textContent = currentChatroomName;
-}
 
 // Variables to handle the uploaded image URL
 let uploadedImageUrl = '';
@@ -542,20 +557,31 @@ async function fetchMessages(initialLoad = false) {
                 clearTimeout(pressTimer); // Cancel long press if touch ends before 800ms
             });
         }
+        // Set the id of the message element to match the message id in the database
+        messageElement.id = `message-${message.id}`;
         messagesDisplay.appendChild(messageElement);
     });
 
-    setTimeout(fetchMessages, 3000);
+    // setTimeout(fetchMessages, 3000);
 }
 
 // Function to display new messages in real-time
-function displayRealTimeMessage(message) {
-    const messagesDisplay = document.getElementById('messages');
+async function displayRealTimeMessage(message) {
+    // Check if the message belongs to the current chatroom
+    if (message.chatroom_id !== currentChatroomId) return;
 
+    const messagesDisplay = document.getElementById('messages');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
 
-    if (message.users.first_name === currentUser.first_name) {
+    // Fetch user info from the database
+    const { data: user, error } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', message.user_id)
+        .single();
+
+    if (user.first_name === currentUser.first_name) {
         messageElement.classList.add('you');
     }
 
@@ -590,8 +616,53 @@ function displayRealTimeMessage(message) {
         }
     }
 
-    // Append the new message to the message feed
-    messagesDisplay.appendChild(messageElement);
+    // Create the final message structure with the message content
+    messageElement.innerHTML = `
+        <div class="message-author">
+            ${user.first_name} <span style="font-size: smaller; color: #888;">${formattedDate}</span>
+        </div>
+        <div class="message-content" style="max-width: 200px;">${contentHtml}</div>
+        `;
+
+    // If it's the current user's message, add right-click/long press event for deletion
+    if (user.first_name === currentUser.first_name) {
+        // Right-click for desktop
+        messageElement.addEventListener('contextmenu', function (event) {
+            event.preventDefault();
+            confirmDelete(message.id, messageElement);
+        });
+
+        // Long-press for mobile (optional)
+        let pressTimer;
+        messageElement.addEventListener('touchstart', function (event) {
+            pressTimer = setTimeout(() => confirmDelete(message.id, messageElement), 800); // Long press triggers after 800ms
+        });
+
+        messageElement.addEventListener('touchend', function () {
+            clearTimeout(pressTimer); // Cancel long press if touch ends before 800ms
+        });
+    }
+    // Set the id of the message element to match the message id in the database
+    messageElement.id = `message-${message.id}`;
+    // Insert the new message at the top of the message list
+    if (messagesDisplay.firstChild) {
+        messagesDisplay.insertBefore(messageElement, messagesDisplay.firstChild);
+    } else {
+        // If there are no messages yet, just append the message
+        messagesDisplay.appendChild(messageElement);
+    }
+}
+
+function removeDeletedMessageFromUI(messageID) {
+    // if (message.chatroom_id !== currentChatroomId) return;
+    // Find the message element in the DOM by using the message's id
+    const messageElement = document.getElementById(`message-${messageID}`);
+
+    if (messageElement) {
+        console.log(`found message-${messageID}` );
+        // Remove the message element from the DOM
+        messageElement.remove();
+    }
 }
 
 // Utility function to check if the content is a single emoji
