@@ -3,9 +3,9 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let isTracking = false;
 
-// Indexes for mouth keypoints
-const BottomLipBottom = 17; // Index for the bottom lip
-const TopLipTop = 0; // Index for the top lip
+// Adjusted indexes for mouth keypoints from FaceMesh
+const BottomLipBottom = 14; // Bottom of inner lower lip
+const TopLipTop = 13; // Top of inner upper lip
 
 async function setupCamera() {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -35,24 +35,36 @@ async function detectFace(model) {
         predictions.forEach(prediction => {
             const keypoints = prediction.scaledMesh;
 
-            // Draw keypoints
+            // Draw keypoints on the face
             for (let i = 0; i < keypoints.length; i++) {
                 const [x, y] = keypoints[i];
                 ctx.fillStyle = 'red';
-                ctx.fillRect(canvas.width-x, y, 5, 5);
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, 2 * Math.PI); // Draw small circles at keypoints
+                ctx.fill();
             }
 
-            // Check for tongue sticking out (using keypoints)
-            const mouthBottom = keypoints[BottomLipBottom]; // Bottom lip
-            const mouthTop = keypoints[TopLipTop]; // Top lip
+            // Check for tongue sticking out
+            const mouthBottom = keypoints[BottomLipBottom]; // Bottom of inner lower lip
+            const mouthTop = keypoints[TopLipTop]; // Top of inner upper lip
             const distance = mouthBottom[1] - mouthTop[1];
 
-            if (distance > 10) { // Adjust threshold as needed
+            if (distance > 20) { // Increased threshold for more reliable detection
                 ctx.fillStyle = 'green';
                 ctx.font = '30px Arial';
-                ctx.fillText('Tongue Sticking Out!', 10, 50);
+                ctx.fillText('Tongue Detected', 10, 50);
+            } else {
+                ctx.fillStyle = 'red';
+                ctx.font = '30px Arial';
+                ctx.fillText('No Tongue Detected', 10, 50);
             }
         });
+    } else {
+        // Clear the previous message if no face is detected
+        ctx.clearRect(0, 0, canvas.width, 50);
+        ctx.fillStyle = 'red';
+        ctx.font = '30px Arial';
+        ctx.fillText('No Face Detected', 10, 50);
     }
 }
 
@@ -69,15 +81,5 @@ async function init() {
 
 // Start tracking as soon as the page loads
 window.onload = init;
-
-
-
-
-        
-
-
-
-
-
 
 
