@@ -11,11 +11,19 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
             height: 100vh;
             margin: 0;
             background-color: #f0f0f0; /* Background color */
         }
+        
+        video {
+            opacity: 1; /* Video is now fully visible */
+            z-index: 0;
+        }
+        canvas {
+            z-index: 1; /* Ensure canvas is on top of video */
+        }
+
         #video, #canvas {
             position: absolute;
             top: 50%;
@@ -24,29 +32,13 @@
             border: 2px solid rgba(255, 255, 255, 0.7);
             border-radius: 10px;
         }
-        video {
-            opacity: 0.5; /* Lower opacity for background visibility */
-        }
-        canvas {
-            z-index: 1; /* Ensure canvas is on top of video */
-        }
     </style>
 </head>
 <body>
-    <video id="video" autoplay hidden></video>
+    <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
 
     <script src="face.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
 
