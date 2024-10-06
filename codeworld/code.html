@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Adventure Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        #battleArea, #shop {
+            display: none;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        #shop {
+            display: block;
+        }
+        #canvas {
+            width: 100%;
+            height: 400px;
+            background-color: #e0e0e0;
+            border: 1px solid #aaa;
+            position: relative;
+        }
+        #enemyHealthBar, #playerHealthBar {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Math Adventure Game</h1>
+    
+    <div id="levelInfo">Level: 1 | XP: 0/100</div>
+    <div id="coinCountDisplay">Coins: 0</div>
+    <div id="canvas">Game Map Area</div>
+    
+    <div id="battleArea">
+        <h2 id="mathProblem"></h2>
+        <input type="number" id="playerAnswerInput" placeholder="Your answer">
+        <button id="checkAnswer">Submit Answer</button>
+        <p id="battleResult"></p>
+        <div id="playerHealthBar">Player Health: 100</div>
+        <div id="enemyHealthBar">Enemy Health: 50</div>
+        <button id="endBattle">End Battle</button>
+    </div>
+
+    <div id="shop">
+        <h2>Shop</h2>
+        <p id="shopCoins">Coins: 0</p>
+        <button id="buyWeapon">Buy Sword (50 coins)</button>
+        <p id="weaponInfo">Equipped Weapon: None</p>
+        <button id="buyArmor">Buy Shield (40 coins)</button>
+        <p id="armorInfo">Equipped Armor: None</p>
+        <button id="buyHealth">Buy Health Potion (20 coins)</button>
+        <p id="shopMessage"></p>
+    </div>
+
+    <script>
+        // Game Variables
+        let playerHealth = 100;
+        let enemyHealth = 50;
+        let playerXP = 0;
+        let playerLevel = 1;
+        let coins = 0;
+        let playerWeapon = 0; // Damage dealt
+        let playerArmor = 0; // Damage reduction
+        let isBossBattle = false;
+        let correctAnswer = 0;
+        const xpToLevelUp = 100;
+
+        // DOM Elements
+        const mathProblem = document.getElementById("mathProblem");
+        const playerAnswerInput = document.getElementById("playerAnswerInput");
+        const checkAnswer = document.getElementById("checkAnswer");
+        const battleResult = document.getElementById("battleResult");
+        const playerHealthBar = document.getElementById("playerHealthBar");
+        const enemyHealthBar = document.getElementById("enemyHealthBar");
+        const endBattle = document.getElementById("endBattle");
+        const shopCoins = document.getElementById("shopCoins");
+        const weaponInfo = document.getElementById("weaponInfo");
+        const armorInfo = document.getElementById("armorInfo");
+        const shopMessage = document.getElementById("shopMessage");
+
+        // Generate a new math problem
+        function generateMathProblem() {
+            const num1 = Math.floor(Math.random() * 20) + 1;
+            const num2 = Math.floor(Math.random() * 20) + 1;
+            const operator = Math.random() < 0.5 ? '+' : '-';
+            mathProblem.textContent = `What is ${num1} ${operator} ${num2}?`;
+            correctAnswer = operator === '+' ? num1 + num2 : num1 - num2;
+        }
+
+        // Start the battle
+        function startBattle(difficulty) {
+            enemyHealth = difficulty === "hard" ? 100 : 50;
+            enemyHealthBar.textContent = `Enemy Health: ${enemyHealth}`;
+            battleResult.textContent = "";
+            generateMathProblem();
+            document.getElementById("battleArea").style.display = "block";
+            document.getElementById("shop").style.display = "none";
+        }
+
+        // Check answer
+        checkAnswer.onclick = () => {
+            const playerAnswer = parseInt(playerAnswerInput.value);
+            if (playerAnswer === correctAnswer) {
+                enemyHealth -= playerWeapon;
+                enemyHealthBar.textContent = `Enemy Health: ${enemyHealth}`;
+                if (enemyHealth <= 0) {
+                    coins += 20; // Reward coins
+                    playerXP += 50; // Reward XP
+                    updateShop();
+                    levelUp();
+                    battleResult.textContent = "You defeated the enemy!";
+                    endBattle.style.display = "block";
+                } else {
+                    generateMathProblem(); // New problem for the next turn
+                }
+            } else {
+                let damageTaken = isBossBattle ? 20 - playerArmor : 10 - playerArmor;
+                playerHealth -= damageTaken > 0 ? damageTaken : 0;
+                playerHealthBar.textContent = `Player Health: ${playerHealth}`;
+                battleResult.textContent = "Incorrect! You took damage.";
+                if (playerHealth <= 0) {
+                    alert("You have been defeated. Game Over!");
+                    resetGame();
+                }
+            }
+        };
+
+        // Level up logic
+        function levelUp() {
+            if (playerXP >= xpToLevelUp) {
+                playerLevel++;
+                playerXP = 0;
+                alert("Level Up! You are now Level " + playerLevel);
+                document.getElementById("levelInfo").textContent = `Level: ${playerLevel} | XP: 0/100`;
+            } else {
+                document.getElementById("levelInfo").textContent = `Level: ${playerLevel} | XP: ${playerXP}/${xpToLevelUp}`;
+            }
+        }
+
+        // End battle
+        endBattle.onclick = () => {
+            document.getElementById("battleArea").style.display = "none";
+            playerAnswerInput.value = "";
+            battleResult.textContent = "";
+            endBattle.style.display = "none";
+        };
+
+        // Update shop display
+        function updateShop() {
+            shopCoins.textContent = `Coins: ${coins}`;
+        }
+
+        // Buy weapon
+        document.getElementById("buyWeapon").onclick = () => {
+            if (coins >= 50) {
+                coins -= 50;
+                playerWeapon = 30;
+                weaponInfo.textContent = "Equipped Weapon: Sword (+30 damage)";
+                shopMessage.textContent = "You bought a sword!";
+                updateShop();
+            } else {
+                shopMessage.textContent = "Not enough coins!";
+            }
+        };
+
+        // Buy armor
+        document.getElementById("buyArmor").onclick = () => {
+            if (coins >= 40) {
+                coins -= 40;
+                playerArmor = 20;
+                armorInfo.textContent = "Equipped Armor: Shield (reduces damage by 20)";
+                shopMessage.textContent = "You bought a shield!";
+                updateShop();
+            } else {
+                shopMessage.textContent = "Not enough coins!";
+            }
+        };
+
+        // Buy health
+        document.getElementById("buyHealth").onclick = () => {
+            if (coins >= 20) {
+                coins -= 20;
+                playerHealth += 20; // Heal player
+                playerHealthBar.textContent = `Player Health: ${playerHealth}`;
+                shopMessage.textContent = "You bought a health potion!";
+                updateShop();
+            } else {
+                shopMessage.textContent = "Not enough coins!";
+            }
+        };
+
+        // Reset game
+        function resetGame() {
+            playerHealth = 100;
+            enemyHealth = 50;
+            coins = 0;
+            playerXP = 0;
+            playerWeapon = 0;
+            playerArmor = 0;
+            isBossBattle = false;
+
+            playerHealthBar.textContent = `Player Health: ${playerHealth}`;
+            enemyHealthBar.textContent = `Enemy Health: ${enemyHealth}`;
+            document.getElementById("coinCountDisplay").textContent = `Coins: ${coins}`;
+            weaponInfo.textContent = "Equipped Weapon: None";
+            armorInfo.textContent = "Equipped Armor: None";
+            document.getElementById("levelInfo").textContent = `Level: ${playerLevel} | XP: ${playerXP}/100`;
+            updateShop();
+        }
+
+        updateShop(); // Initialize shop display
+    </script>
+</body>
+</html>
+
+
+
+
+
