@@ -286,7 +286,7 @@ window.handleChatroomChange = function () {
     }
 
     fetchMessages();  // Optionally fetch the last few messages for the new chatroom
-    subscribeToChatroomMessages(currentChatroomId);  // Subscribe to real-time updates for the new chatroom
+    // subscribeToChatroomMessages(currentChatroomId);  // Subscribe to real-time updates for the new chatroom
 };
 
 // Variables to handle the uploaded image URL
