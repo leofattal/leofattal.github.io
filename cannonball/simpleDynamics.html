@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Throw Physics Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="simulationCanvas"></canvas>
+    <img id="ball" src="images/ball.png" style="display:none" />
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const ball = document.getElementById('ball');
+        const gravity = 200;  // Gravity (m/s^2)
+        const airResistance = 0.1;  // Air resistance coefficient
+        const friction = 0.05;  // Friction coefficient
+        let posX = 0, posY = canvas.height - 50;  // Ball's initial position (at the bottom-left corner)
+        let vx = 0, vy = 0;  // Velocity
+        let lastTime = 0;  // Track time for accurate integration
+        let isPressed = false, pressStartTime = 0, releaseVelocity = 0;
+
+        // Track mouse/finger movement
+        let mouseX = 0, mouseY = 0;
+
+        // Function to calculate velocity magnitude based on press duration
+        function calculateVelocity(pressTime) {
+            return pressTime * 1.0;  // Adjust the scaling factor
+        }
+
+        // Track press and release events
+        canvas.addEventListener('mousedown', (e) => {
+            isPressed = true;
+            pressStartTime = Date.now();
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (isPressed) {
+                const pressDuration = Date.now() - pressStartTime;
+                releaseVelocity = calculateVelocity(pressDuration);
+                const angle = Math.atan2(- mouseY + posY, mouseX - posX);  // Calculate release angle
+                vx = releaseVelocity * Math.cos(angle);
+                vy = -releaseVelocity * Math.sin(angle);  // Negative because y decreases upward
+            }
+            isPressed = false;
+        });
+
+        // Main render loop
+        function render(time) {
+            if (!lastTime) lastTime = time;
+            const deltaTime = (time - lastTime) / 1000;  // Time in seconds
+            lastTime = time;
+
+            // Apply gravity and air resistance
+            vy += gravity * deltaTime;  // Gravity affects vertical velocity
+            vx -= vx * airResistance * deltaTime;  // Air resistance affects both directions
+            vy -= vy * airResistance * deltaTime;
+
+            // Prevent the ball from falling through the floor
+            if (posY > canvas.height - 50) {  // 50 is the height of the ball image
+                //posY = canvas.height - 50;
+                vy = -vy;  // Bounce back up
+                vx -= vx * friction;  // Friction affects horizontal velocity
+            }
+
+            // Prevent the ball from going through ceiling
+            if (posY < 0) {
+                //posY = 0;
+                vy = -vy;
+            }
+
+            // Prevent the ball from going off the left side of the screen
+            if (posX < 0) {
+                //posX = 0;
+                vx = -vx;
+            }
+            // Prevent the ball from going off the right side of the screen
+            if (posX > canvas.width - 50) {  // 50 is the width of the ball image
+                //posX = canvas.width - 50;
+                vx = -vx;
+            }
+
+            // Update position based on velocity
+            posX += vx * deltaTime;
+            posY += vy * deltaTime;
+
+            // Clear the canvas and draw the ball
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(ball, posX, posY, 50, 50);  // Draw the ball image at updated position
+
+            requestAnimationFrame(render);  // Loop
+        }
+
+        // Start the render loop
+        requestAnimationFrame(render);
+    </script>
+</body>
+
+</html>
