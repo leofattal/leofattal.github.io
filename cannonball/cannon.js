@@ -74,6 +74,18 @@ canvas.addEventListener('mousemove', (event) => {
   angle = Math.max(0, Math.min(90, (canvas.height - mouseY) * 90 / canvas.height));
 });
 
+// Score system
+let score = 0;
+const scoreDisplay = document.createElement('div');
+scoreDisplay.style.position = 'absolute';
+scoreDisplay.style.top = '10px';
+scoreDisplay.style.left = '10px';
+scoreDisplay.style.fontSize = '24px';
+scoreDisplay.style.fontFamily = 'Arial';
+scoreDisplay.style.color = 'black';
+scoreDisplay.textContent = `Score: ${score}`;
+document.body.appendChild(scoreDisplay);
+
 // Function to fire cannonball
 function fireCannonball() {
   const radians = (Math.PI / 180) * angle;
@@ -148,6 +160,28 @@ Events.on(engine, 'beforeUpdate', () => {
   Body.setAngle(cannon, -radians); // Rotate the cannon
   updateTargets(); // Update moving targets every frame
 });
+
+// Detect collisions and update score
+Events.on(engine, 'collisionStart', (event) => {
+  const pairs = event.pairs;
+  pairs.forEach(pair => {
+    const { bodyA, bodyB } = pair;
+
+    // Check if a cannonball hits a target
+    targets.forEach((target, index) => {
+      if ((bodyA === target && cannonballs.includes(bodyB)) || (bodyB === target && cannonballs.includes(bodyA))) {
+        // Remove the target from the world and targets array
+        World.remove(world, target);
+        targets.splice(index, 1);
+
+        // Increment the score
+        score += 1;
+        scoreDisplay.textContent = `Score: ${score}`;
+      }
+    });
+  });
+});
+
 
 
 
