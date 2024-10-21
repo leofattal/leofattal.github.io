@@ -1,29 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cannon Shooting Game</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cannon Shooter</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background-image: url('your-background-image.jpg'); /* Add your background image here */
+      background-size: cover;
+      width: 100vw;
+      height: 100vh;
+    }
+    #controls {
+      text-align: center;
+      margin-top: 10px;
+    }
+    #velocityBar {
+      width: 20px;
+      height: 150px;
+      border: 2px solid black;
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      display: none;
+      background: linear-gradient(to top, red, yellow, green);
+    }
+    #indicator {
+      width: 20px;
+      height: 5px;
+      background-color: white;
+      position: absolute;
+      bottom: 0;
+    }
+  </style>
 </head>
 <body>
-    <h1>Cannon Shooting Game</h1>
-    <div class="controls">
-        <label for="angle">Cannon Angle: <span id="angleValue">45</span>°</label>
-        <input type="range" id="angle" min="0" max="90" value="45">
-        <br>
-        <label for="velocity">Cannonball Velocity: <span id="velocityValue">20</span></label>
-        <input type="range" id="velocity" min="10" max="100" value="20">
-        <br>
-        <button id="shoot">Shoot</button>
-        <button id="clear">Clear Cannonballs</button>
-    </div>
-    <canvas id="world"></canvas>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <script src="app.js"></script>
+<canvas id="worldCanvas"></canvas>
+
+<div id="controls">
+  <button id="clearBtn">Clear Balls</button>
+</div>
+
+<div id="velocityBar">
+  <div id="indicator"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.17.1/matter.min.js"></script>
+<script src="cannon.js"></script>
 </body>
 </html>
+
+
+
+
+
 
 
 
