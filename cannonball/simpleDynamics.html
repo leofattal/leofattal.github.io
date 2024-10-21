@@ -32,7 +32,11 @@
         const airResistance = 0.1;  // Air resistance coefficient
         const friction = 0.05;  // Friction coefficient
         const restitution = 0.8;  // Restitution coefficient (bounciness)
-        let posX = 0, posY = canvas.height - 50;  // Ball's initial position (at the bottom-left corner)
+        const rotRestitution = 0.2;  // Rotational restitution coefficient (controls how much rotation the ball gains)
+        const radius = 25;  // Radius of the ball (half the width/height)
+        let omega = 0;  // Angular velocity (radians per second)
+        let theta = 0;  // Rotation angle of the ball (in radians)
+        let posX = 0, posY = canvas.height - 2 * radius - 0.1;  // Ball's initial position (at the bottom-left corner)
         let vx = 0, vy = 0;  // Velocity
         let lastTime = 0;  // Track time for accurate integration
         let isPressed = false, pressStartTime = 0, releaseVelocity = 0;
@@ -76,10 +80,17 @@
             vy -= vy * airResistance * deltaTime;
 
             // Prevent the ball from falling through the floor
-            if (posY > canvas.height - 50) {  // 50 is the height of the ball image
-                //posY = canvas.height - 50;
+            if (posY >= canvas.height - 2 * radius) {  // 2*radius is the height of the ball image
+                posY = canvas.height - 2 * radius;
                 vy = -vy * restitution; // Bounce back with some energy loss
                 vx -= vx * friction;  // Friction affects horizontal velocity
+                // Apply rotational dynamics phenomenologically based on horizontal velocity
+                omega = (1 - rotRestitution) * omega + vx / radius * rotRestitution;  // Increase angular velocity based on horizontal speed
+
+                // Optional: Stop ball completely if it's moving very slowly (in both directions)
+                if (Math.abs(vx) < 0.1) vx = 0;
+                if (Math.abs(vy) < 0.1) vy = 0;
+                if (Math.abs(omega) < 0.1) omega = 0;  // Stop rotation if it's too slow
             }
 
             // Prevent the ball from going through ceiling
@@ -94,8 +105,8 @@
                 vx = -vx;
             }
             // Prevent the ball from going off the right side of the screen
-            if (posX > canvas.width - 50) {  // 50 is the width of the ball image
-                //posX = canvas.width - 50;
+            if (posX > canvas.width - 2 * radius) {  // 2*radius is the width of the ball image
+                //posX = canvas.width - 2*radius;
                 vx = -vx;
             }
 
@@ -103,9 +114,26 @@
             posX += vx * deltaTime;
             posY += vy * deltaTime;
 
+            // Update ball's rotation based on angular velocity
+            theta += omega * deltaTime;
+
             // Clear the canvas and draw the ball
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(ball, posX, posY, 50, 50);  // Draw the ball image at updated position
+
+            // Save the current context
+            ctx.save();
+
+            // Translate to the ball's position (center of the ball)
+            ctx.translate(posX + radius, posY + radius);
+
+            // Rotate the canvas by the current angle of rotation
+            ctx.rotate(theta);
+
+            // Draw the ball, centered at the new position, taking into account the rotation
+            ctx.drawImage(ball, -radius, -radius, 2 * radius, 2 * radius);
+
+            // Restore the context to avoid affecting other drawings
+            ctx.restore();
 
             requestAnimationFrame(render);  // Loop
         }
