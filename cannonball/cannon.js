@@ -31,7 +31,7 @@ const runner = Runner.create();
 Runner.run(runner, engine);
 
 // Function to keep object sizes proportional
-const scaleFactor = window.innerWidth / 1920; // Scale objects based on a 1920px width reference
+const scaleFactor = window.innerWidth / 2560; // Scale objects based on a 2560px width reference
 
 // Platform for the cannon
 const platformWidth = 200 * scaleFactor;
@@ -65,6 +65,7 @@ function createTarget(x, y) {
   World.add(world, target);
 }
 createTarget(window.innerWidth - 200 * scaleFactor, window.innerHeight - 60 * scaleFactor); // Create a moving target
+createTarget(window.innerWidth - 100 * scaleFactor, window.innerHeight - 30 * scaleFactor); // Create a moving target
 
 // Variables to store angle and velocity
 let angle = 45;
