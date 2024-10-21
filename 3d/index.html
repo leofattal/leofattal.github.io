@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cannonball Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.18.0/dist/cannon-es.js"></script>
+
+    <script>
+        // Set up Three.js scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Set up Cannon.js world
+        const world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0);
+
+        // Cannon and target objects
+        let cannon, target;
+        let balls = [];
+
+        // Ground
+        const groundBody = new CANNON.Body({
+            mass: 0,
+            shape: new CANNON.Plane(),
+        });
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        world.addBody(groundBody);
+
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+        const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+        groundMesh.rotation.x = -Math.PI / 2;
+        scene.add(groundMesh);
+
+        // Create a cannon object
+        function createCannon() {
+            const geometry = new THREE.CylinderGeometry(0.5, 0.5, 3, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0x808080 });
+            cannon = new THREE.Mesh(geometry, material);
+            cannon.rotation.z = Math.PI / 2;
+            cannon.position.set(-4, 1, 0);
+            scene.add(cannon);
+        }
+
+        // Create target object
+        function createTarget() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            target = new THREE.Mesh(geometry, material);
+            target.position.set(5, 0.5, 0);
+            scene.add(target);
+        }
+
+        // Shoot a cannonball
+        function shootCannonBall() {
+            const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+            const ballMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+
+            // Add physics for cannonball
+            const ballBody = new CANNON.Body({
+                mass: 1,
+                shape: new CANNON.Sphere(0.2),
+                position: new CANNON.Vec3(cannon.position.x + 2, 1, 0)
+            });
+            ballBody.velocity.set(10, 5, 0); // Initial velocity for cannonball
+            world.addBody(ballBody);
+
+            balls.push({ mesh: ballMesh, body: ballBody });
+            scene.add(ballMesh);
+        }
+
+        // Create cannon, target, and allow shooting
+        createCannon();
+        createTarget();
+
+        // Game loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update physics
+            world.step(1 / 60);
+
+            // Update cannonball positions
+            balls.forEach((ball) => {
+                ball.mesh.position.copy(ball.body.position);
+                ball.mesh.quaternion.copy(ball.body.quaternion);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Event listener to shoot a cannonball on spacebar press
+        window.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                shootCannonBall();
+            }
+        });
+
+        // Adjust camera
+        camera.position.set(0, 5, 10);
+        camera.lookAt(0, 1, 0);
+    </script>
+</body>
+</html>
