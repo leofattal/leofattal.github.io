@@ -33,10 +33,21 @@ Runner.run(runner, engine);
 // Function to keep object sizes proportional
 const scaleFactor = window.innerWidth / 1920; // Scale objects based on a 1920px width reference
 
+// Platform for the cannon
+const platformWidth = 200 * scaleFactor;
+const platformHeight = 20 * scaleFactor;
+const platform = Bodies.rectangle(150 * scaleFactor, window.innerHeight - 70 * scaleFactor, platformWidth, platformHeight, { 
+  isStatic: true, 
+  render: {
+    fillStyle: '#8B4513' // Brown color for the platform
+  } 
+});
+World.add(world, platform);
+
 // Cannon base
 const cannonWidth = 100 * scaleFactor;
 const cannonHeight = 20 * scaleFactor;
-const cannon = Bodies.rectangle(100 * scaleFactor, window.innerHeight - 50 * scaleFactor, cannonWidth, cannonHeight, { isStatic: true });
+const cannon = Bodies.rectangle(100 * scaleFactor, window.innerHeight - 90 * scaleFactor, cannonWidth, cannonHeight, { isStatic: true });
 World.add(world, cannon);
 
 // Ground
@@ -92,7 +103,7 @@ function fireCannonball() {
   const speed = velocity * 10 * scaleFactor; // Scale speed by the screen width
 
   const cannonballSize = 10 * scaleFactor; // Adjust cannonball size
-  const cannonball = Bodies.circle(150 * scaleFactor, canvas.height - 60 * scaleFactor, cannonballSize, {
+  const cannonball = Bodies.circle(150 * scaleFactor, canvas.height - 110 * scaleFactor, cannonballSize, {
     restitution: 0.8, // Bounce
     density: 0.05,    // Mass
   });
@@ -181,6 +192,7 @@ Events.on(engine, 'collisionStart', (event) => {
     });
   });
 });
+
 
 
 
