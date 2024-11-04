@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Throw Physics Simulation with Target</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="simulationCanvas"></canvas>
+    <img id="ball" src="images/ball.png" style="display:none" />
+    <img id="target" src="https://png.pngtree.com/png-clipart/20220930/original/pngtree-helloween-pumpkin-vector-png-image_8644069.png" style="display:none" />
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const ball = document.getElementById('ball');
+        const target = document.getElementById('target');
+
+        const gravity = 200;
+        const airResistance = 0.1;
+        const friction = 0.05;
+        const restitution = 0.8;
+        const rotRestitution = 0.2;
+        const radius = 25;
+        let omega = 0;
+        let theta = 0;
+        let posX = 0, posY = canvas.height - 2 * radius - 0.1;
+        let vx = 0, vy = 0;
+        let lastTime = 0;
+        let isPressed = false, pressStartTime = 0, releaseVelocity = 0;
+        let score = 0;
+
+        // Track mouse/finger movement
+        let mouseX = 0, mouseY = 0;
+
+        // Target properties
+        let targetX = Math.random() * (canvas.width - 50) + 25;
+        let targetY = Math.random() * (canvas.height - 200) + 50;
+        const targetRadius = 30;
+        let targetSpeed = 100;
+
+        // Function to calculate velocity magnitude based on press duration
+        function calculateVelocity(pressTime) {
+            return pressTime * 1.0;
+        }
+
+        // Track press and release events
+        canvas.addEventListener('mousedown', (e) => {
+            isPressed = true;
+            pressStartTime = Date.now();
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (isPressed) {
+                const pressDuration = Date.now() - pressStartTime;
+                releaseVelocity = calculateVelocity(pressDuration);
+                const angle = Math.atan2(- mouseY + posY, mouseX - posX);
+                vx = releaseVelocity * Math.cos(angle);
+                vy = -releaseVelocity * Math.sin(angle);
+            }
+            isPressed = false;
+        });
+
+        function checkCollision() {
+            const distX = posX - targetX;
+            const distY = posY - targetY;
+            const distance = Math.sqrt(distX * distX + distY * distY);
+
+            if (distance < radius + targetRadius) {
+                score += 1;
+                console.log("Score:", score);
+                respawnTarget();
+            }
+        }
+
+        function respawnTarget() {
+            targetX = Math.random() * (canvas.width - 50) + 25;
+            targetY = Math.random() * (canvas.height - 200) + 50;
+        }
+
+        // Main render loop
+        function render(time) {
+            if (!lastTime) lastTime = time;
+            const deltaTime = (time - lastTime) / 1000;
+            lastTime = time;
+
+            // Apply gravity and air resistance
+            vy += gravity * deltaTime;
+            vx -= vx * airResistance * deltaTime;
+            vy -= vy * airResistance * deltaTime;
+
+            // Prevent the ball from falling through the floor
+            if (posY >= canvas.height - 2 * radius) {
+                posY = canvas.height - 2 * radius;
+                vy = -vy * restitution;
+                vx -= vx * friction;
+                omega = (1 - rotRestitution) * omega + vx / radius * rotRestitution;
+
+                if (Math.abs(vx) < 0.1) vx = 0;
+                if (Math.abs(vy) < 0.1) vy = 0;
+                if (Math.abs(omega) < 0.1) omega = 0;
+            }
+
+            // Prevent the ball from going off the screen edges
+            if (posY < 0) vy = -vy;
+            if (posX < 0) vx = -vx;
+            if (posX > canvas.width - 2 * radius) vx = -vx;
+
+            // Update position based on velocity
+            posX += vx * deltaTime;
+            posY += vy * deltaTime;
+
+            // Update ball's rotation
+            theta += omega * deltaTime;
+
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Move the target horizontally
+            targetX += targetSpeed * deltaTime;
+            if (targetX > canvas.width - targetRadius || targetX < targetRadius) {
+                targetSpeed = -targetSpeed;  // Reverse direction at canvas edges
+            }
+
+            // Check for collision between ball and target
+            checkCollision();
+
+            // Draw the target
+            ctx.drawImage(target, targetX - targetRadius, targetY - targetRadius, 2 * targetRadius, 2 * targetRadius);
+
+            // Draw the ball
+            ctx.save();
+            ctx.translate(posX + radius, posY + radius);
+            ctx.rotate(theta);
+            ctx.drawImage(ball, -radius, -radius, 2 * radius, 2 * radius);
+            ctx.restore();
+
+            // Display score
+            ctx.fillStyle = 'black';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 30);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+
+</html>
