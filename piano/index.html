@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano App</title>
+    <style>
+        /* Basic reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #282c34;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Styles for the piano keyboard */
+        .keyboard {
+            display: flex;
+            position: relative;
+            width: 115vw; /* Full width */
+            height: 95vh; /* Height of the keyboard */
+            overflow: hidden;
+            justify-content: center;
+        }
+
+        .key {
+            position: relative;
+            width: 5vw; /* Width of each key */
+            height: 100%; /* Full height of keyboard */
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        .key.active {
+            background-color: #ffcc00; /* Highlight color when pressed */
+        }
+
+        .key.sharp {
+            background-color: black;
+            width: 3vw; /* Width of sharp keys */
+            height: 70%; /* Height of sharp keys */
+            margin-left: -1.5vw; /* Center sharp keys */
+            z-index: 1; /* Bring sharp keys in front */
+            margin-right: -1.5vw; /* Center sharp keys */
+        }
+    </style>
+</head>
+<body>
+    <div class="keyboard">
+        <!-- White keys -->
+        <div class="key" data-note="C3"></div>
+        <div class="key sharp" data-note="C3s"></div>
+        <div class="key" data-note="D3"></div>
+        <div class="key sharp" data-note="D3s"></div>
+        <div class="key" data-note="E3"></div>
+        <div class="key" data-note="F3"></div>
+        <div class="key sharp" data-note="F3s"></div>
+        <div class="key" data-note="G3"></div>
+        <div class="key sharp" data-note="G3s"></div>
+        <div class="key" data-note="A3"></div>
+        <div class="key sharp" data-note="A3s"></div>
+        <div class="key" data-note="B3"></div>
+        <div class="key" data-note="C4"></div>
+        <div class="key sharp" data-note="C4s"></div>
+        <div class="key" data-note="D4"></div>
+        <div class="key sharp" data-note="D4s"></div>
+        <div class="key" data-note="E4"></div>
+        <div class="key" data-note="F4"></div>
+        <div class="key sharp" data-note="F4s"></div>
+        <div class="key" data-note="G4"></div>
+        <div class="key sharp" data-note="G4s"></div>
+        <div class="key" data-note="A4"></div>
+        <div class="key sharp" data-note="A4s"></div>
+        <div class="key" data-note="B4"></div>
+    </div>
+
+    <script src="piano.js"></script>
+</body>
+</html>
+
+
+
+
+
