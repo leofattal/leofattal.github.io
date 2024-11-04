@@ -371,8 +371,8 @@ async function generateImage() {
     }
 
     showLoadingSpinner(); // Show loading spinner while waiting for image generation
-    const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev';
-    // const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell';
+    //const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev';
+    const endpoint = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell';
     // const endpoint = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0';
 
     try {
