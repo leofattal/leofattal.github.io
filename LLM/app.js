@@ -10,7 +10,7 @@ const userInput = document.getElementById("userInput");
 
 // Initialize conversation history with the agent's initial message
 const conversationHistory = [
-  { role: "assistant", content: "How can I be of help?" }
+  { role: "assistant", content: "How can I help?" }
 ];
 
 // Display initial message
