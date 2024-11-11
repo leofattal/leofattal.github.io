@@ -53,7 +53,7 @@ userInput.addEventListener("keypress", async (e) => {
     const stream = client.chatCompletionStream({
       model: "meta-llama/Llama-3.1-8B-Instruct",
       messages: conversationHistory,
-      max_tokens: 500
+      max_tokens: 1000
     });
 
     for await (const chunk of stream) {
@@ -216,10 +216,31 @@ function updateMessageContent(messageElement, content) {
     // If content is empty, remove the element from the DOM
     messageElement.remove();
   } else {
-    // Otherwise, update the content
-    messageElement.innerHTML = content;
+    // Check if the content contains code markers (like ```) and format it as code
+    if (content.includes("```")) {
+      // Wrap code content in <pre><code> for code display and remove backticks
+      const formattedContent = content
+        .replace(/```(.*?)```/gs, (match, code) => `<pre><code>${escapeHTML(code.trim())}</code></pre>`)
+        .replace(/```/g, ''); // Remove any remaining ``` markers
+
+      messageElement.innerHTML = formattedContent;
+      messageElement.style.fontFamily = "monospace";
+    } else {
+      // Otherwise, display normally
+      messageElement.innerHTML = content;
+    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
+}
+
+// Helper function to escape HTML characters in code snippets
+function escapeHTML(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatResponse(content) {
