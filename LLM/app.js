@@ -8,25 +8,31 @@ const client = new HfInference(apiKey);
 const chatContainer = document.getElementById("messages");
 const userInput = document.getElementById("userInput");
 
-// Initial agent message
-addMessage("How can I be of help?", "agent");
+// Initialize conversation history with the agent's initial message
+const conversationHistory = [
+  { role: "assistant", content: "How can I be of help?" }
+];
+
+// Display initial message
+addMessage(conversationHistory[0].content, "agent");
 
 userInput.addEventListener("keypress", async (e) => {
   if (e.key === "Enter" && userInput.value.trim()) {
     const userMessage = userInput.value.trim();
+    
+    // Add user message to conversation history
+    conversationHistory.push({ role: "user", content: userMessage });
     addMessage(userMessage, "user");
     userInput.value = "";
 
     // Add an empty message bubble for the assistant response
     const agentMessageId = addMessage("", "agent");
 
-    // Call Hugging Face API
+    // Call Hugging Face API with the full conversation history
     let out = "";
     const stream = client.chatCompletionStream({
       model: "meta-llama/Llama-3.1-8B-Instruct",
-      messages: [
-        { role: "user", content: userMessage }
-      ],
+      messages: conversationHistory,
       max_tokens: 500
     });
 
@@ -37,6 +43,9 @@ userInput.addEventListener("keypress", async (e) => {
         updateMessageContent(agentMessageId, out);  // Update the message in real-time
       }
     }
+
+    // After receiving the full response, add it to the conversation history
+    conversationHistory.push({ role: "assistant", content: out });
   }
 });
 
