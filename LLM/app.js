@@ -40,7 +40,7 @@ userInput.addEventListener("keypress", async (e) => {
       if (chunk.choices && chunk.choices.length > 0) {
         const newContent = chunk.choices[0].delta.content;
         out += newContent;
-        updateMessageContent(agentMessageId, out);  // Update the message in real-time
+        updateMessageContent(agentMessageId, formatResponse(out));  // Apply formatting
       }
     }
 
@@ -52,7 +52,7 @@ userInput.addEventListener("keypress", async (e) => {
 function addMessage(content, role) {
   const message = document.createElement("div");
   message.classList.add("message", role);
-  message.textContent = content;
+  message.innerHTML = content; // Use innerHTML to allow formatted content
   chatContainer.appendChild(message);
   chatContainer.scrollTop = chatContainer.scrollHeight;
   
@@ -60,6 +60,22 @@ function addMessage(content, role) {
 }
 
 function updateMessageContent(messageElement, content) {
-  messageElement.textContent = content;
+  messageElement.innerHTML = content; // Update as HTML for formatting
   chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function formatResponse(content) {
+  // Convert Markdown-style syntax to HTML:
+  let formatted = content
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")  // Bold: **text**
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")              // Italic: *text*
+    .replace(/^-\s(.*)/gm, "<li>$1</li>")              // List item: - text
+    .replace(/(?:\r\n|\r|\n)/g, "<br>");               // Line breaks
+  
+  // Wrap lists in <ul> tags if any <li> elements exist
+  if (formatted.includes("<li>")) {
+    formatted = "<ul>" + formatted + "</ul>";
+  }
+  
+  return formatted;
 }
