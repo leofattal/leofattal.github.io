@@ -6,7 +6,10 @@ import { HfInference } from 'https://cdn.jsdelivr.net/npm/@huggingface/inference
 const client = new HfInference(apiKey); // Replace with your actual Hugging Face API key
 const chatContainer = document.getElementById("messages");
 const userInput = document.getElementById("userInput");
-const imageUpload = document.getElementById("imageUpload");
+const imageUpload = document.createElement("input"); // Hidden input for file selection
+imageUpload.type = "file";
+imageUpload.accept = "image/*";
+const uploadButton = document.getElementById("uploadButton");
 
 const conversationHistory = [
   { role: "assistant", content: "How can I be of help?" }
@@ -65,11 +68,47 @@ userInput.addEventListener("keypress", async (e) => {
   }
 });
 
+// Event listener for the `+` button to select an image
+uploadButton.addEventListener("click", () => {
+  imageUpload.click(); // Trigger file selection dialog
+});
+
+// Event listener for handling image file selection and uploading to ImgBB
+imageUpload.addEventListener("change", async () => {
+  const file = imageUpload.files[0];
+  if (file) {
+    const imgbbApiKey = "e87d31902b8f721ea869e4f64d158816"; // Replace with your ImgBB API key
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbApiKey}`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+
+      if (data && data.data && data.data.url) {
+        // Insert the image URL into the chat box and trigger analysis
+        userInput.value = data.data.url;
+        const event = new KeyboardEvent('keypress', { key: 'Enter' });
+        userInput.dispatchEvent(event); // Programmatically trigger Enter key to analyze
+      } else {
+        alert("Image upload failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("An error occurred while uploading the image.");
+    }
+  }
+  imageUpload.value = ""; // Clear file input after use
+});
+
 // Function to generate image from prompt using Flux-Schnell model
 async function generateImageFromPrompt(prompt) {
   // Add the user's prompt to the conversation history
   conversationHistory.push({ role: "user", content: `/imagine ${prompt}` });
-  
+
   // Display loading message
   const loadingMessage = addMessage("Generating image...", "agent");
 
