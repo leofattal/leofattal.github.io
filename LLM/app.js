@@ -3,10 +3,10 @@ const apiKey = "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";
 
 import { HfInference } from 'https://cdn.jsdelivr.net/npm/@huggingface/inference@2.8.1/+esm';
 
-const client = new HfInference(apiKey);
-
+const client = new HfInference(apiKey); // Replace with your actual Hugging Face API key
 const chatContainer = document.getElementById("messages");
 const userInput = document.getElementById("userInput");
+const imageUpload = document.getElementById("imageUpload");
 
 const conversationHistory = [
   { role: "assistant", content: "How can I be of help?" }
@@ -15,23 +15,36 @@ const conversationHistory = [
 // Display initial message
 addMessage(conversationHistory[0].content, "agent");
 
+// Event listener for user text input (URLs, commands, or text questions)
 userInput.addEventListener("keypress", async (e) => {
   if (e.key === "Enter" && userInput.value.trim()) {
     const userMessage = userInput.value.trim();
+
+    // Check if the user wants to generate an image with /imagine command
+    if (userMessage.startsWith("/imagine")) {
+      const prompt = userMessage.slice(8).trim(); // Extract the prompt text after "/imagine"
+      if (prompt) {
+        await generateImageFromPrompt(prompt);
+      } else {
+        addMessage("Please provide a prompt after /imagine", "agent");
+      }
+      userInput.value = "";
+      return;
+    }
 
     // Add user message to conversation history and display it
     conversationHistory.push({ role: "user", content: userMessage });
     addMessage(userMessage, "user");
     userInput.value = "";
 
-    // Check if the input is a URL (simple URL pattern match)
+    // Check if the input is a URL
     const urlPattern = /(https?:\/\/[^\s]+)/;
     if (urlPattern.test(userMessage)) {
-      const isImage = await analyzeImageURL(userMessage);
-      if (isImage) return;
+      const isImageAnalyzed = await analyzeImageURL(userMessage);
+      if (isImageAnalyzed) return; // If image analysis was successful, return
     }
 
-    // Regular text input handling
+    // Otherwise, handle it as text
     const agentMessageId = addMessage("", "agent");
     let out = "";
     const stream = client.chatCompletionStream({
@@ -52,23 +65,65 @@ userInput.addEventListener("keypress", async (e) => {
   }
 });
 
+// Function to generate image from prompt using Flux-Schnell model
+async function generateImageFromPrompt(prompt) {
+  // Display loading message
+  const loadingMessage = addMessage("Generating image...", "agent");
+
+  try {
+    const endpoint = `https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`, // Replace with your Hugging Face API key
+        'Content-Type': 'application/json',
+        "x-use-cache": "false"
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: { seed: Math.floor(Math.random() * 1000000) }
+      })
+    });
+
+    const blob = await response.blob();
+    const imageUrl = URL.createObjectURL(blob);
+
+    // Remove loading message
+    updateMessageContent(loadingMessage, "");
+
+    // Display the generated image
+    const imageElement = document.createElement("img");
+    imageElement.src = imageUrl;
+    imageElement.alt = "Generated image";
+    imageElement.style.maxWidth = "100%";
+    imageElement.style.borderRadius = "8px";
+
+    const imageMessage = document.createElement("div");
+    imageMessage.classList.add("message", "agent");
+    imageMessage.appendChild(imageElement);
+    chatContainer.appendChild(imageMessage);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  } catch (error) {
+    updateMessageContent(loadingMessage, "Failed to generate image. Please try again.");
+  }
+}
+
+// Analyze external image URL
 async function analyzeImageURL(imageUrl) {
 
-  // Add the image element to the chat immediately
+  // Display the image in the chat immediately
   const imageElement = document.createElement("img");
   imageElement.src = imageUrl;
   imageElement.alt = "User-provided image";
   imageElement.style.maxWidth = "100%";
   imageElement.style.borderRadius = "8px";
 
-  // Append the image element directly to the chat container above the description
   const imageMessage = document.createElement("div");
   imageMessage.classList.add("message", "agent");
   imageMessage.appendChild(imageElement);
   chatContainer.appendChild(imageMessage);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 
-  // Create a new message bubble for the image and description
   const agentMessageId = addMessage("", "agent");
 
   try {
@@ -95,14 +150,12 @@ async function analyzeImageURL(imageUrl) {
       }
     }
 
-    // Add image description to conversation history
     conversationHistory.push({ role: "assistant", content: out });
-    return true;  // Indicates image analysis was performed
+    return true;
   } catch (error) {
-    // If URL isn't an image, respond with a friendly message
     updateMessageContent(agentMessageId, "It looks like this link is not an image, or something went wrong. Please try a different link.");
     conversationHistory.push({ role: "assistant", content: "It looks like this link is not an image, or something went wrong. Please try a different link." });
-    return false;  // Indicates image analysis was not performed
+    return false;
   }
 }
 
@@ -117,8 +170,14 @@ function addMessage(content, role) {
 }
 
 function updateMessageContent(messageElement, content) {
-  messageElement.innerHTML = content;
-  chatContainer.scrollTop = chatContainer.scrollHeight;
+  if (content === "") {
+    // If content is empty, remove the element from the DOM
+    messageElement.remove();
+  } else {
+    // Otherwise, update the content
+    messageElement.innerHTML = content;
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
 }
 
 function formatResponse(content) {
