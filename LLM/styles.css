@@ -1,59 +1,74 @@
 body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-color: #f0f0f0;
-  }
-  
-  #chatContainer {
-    width: 80%;
-    max-width: 600px;
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  #messages {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 500px;
-    overflow-y: auto;
-  }
-  
-  .message {
-    padding: 10px;
-    border-radius: 10px;
-    max-width: 70%;
-  }
-  
-  .user {
-    align-self: flex-end;
-    background-color: #007aff;
-    color: #ffffff;
-  }
-  
-  .agent {
-    align-self: flex-start;
-    background-color: #e5e5ea;
-    color: #000000;
-  }
-  
-  #userInput {
-    width: 100%;
-    padding: 10px;
-    margin-top: 10px;
-    border-radius: 5px;
-    border: 1px solid #cccccc;
-  }
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f0f0f0;
+  margin: 0;
+}
 
-  .message ul {
-    padding-left: 20px; /* Indent for lists */
-  }
-  
-  .message ul li {
-    margin-bottom: 4px; /* Small gap between list items */
-  }
+#chatContainer {
+  width: 80%;
+  max-width: 600px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.message {
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 70%;
+}
+
+.user {
+  align-self: flex-end;
+  background-color: #007aff;
+  color: #ffffff;
+}
+
+.agent {
+  align-self: flex-start;
+  background-color: #e5e5ea;
+  color: #000000;
+}
+
+#userInput {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 5px;
+  border: 1px solid #cccccc;
+}
+
+.message ul {
+  padding-left: 20px;
+  /* Indent for lists */
+}
+
+.message ul li {
+  margin-bottom: 4px;
+  /* Small gap between list items */
+}
+
+
+
+#pageTitle {
+  font-size: 2rem;
+  color: #007aff;
+  margin-bottom: 20px;
+  /* Space between title and chat */
+  font-weight: bold;
+  text-align: center;
+}
