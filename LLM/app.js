@@ -67,6 +67,9 @@ userInput.addEventListener("keypress", async (e) => {
 
 // Function to generate image from prompt using Flux-Schnell model
 async function generateImageFromPrompt(prompt) {
+  // Add the user's prompt to the conversation history
+  conversationHistory.push({ role: "user", content: `/imagine ${prompt}` });
+  
   // Display loading message
   const loadingMessage = addMessage("Generating image...", "agent");
 
