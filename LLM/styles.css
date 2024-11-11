@@ -9,6 +9,7 @@ body {
   margin: 0;
 }
 
+<<<<<<< HEAD
 #chatContainer {
   width: 80%;
   max-width: 600px;
@@ -72,3 +73,13 @@ body {
   font-weight: bold;
   text-align: center;
 }
+=======
+  .message ul {
+    padding-left: 20px; /* Indent for lists */
+  }
+  
+  .message ul li {
+    margin-bottom: 4px; /* Small gap between list items */
+  }
+  
+>>>>>>> 1f8788d (y)
