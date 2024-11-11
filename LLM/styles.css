@@ -49,3 +49,11 @@ body {
     border-radius: 5px;
     border: 1px solid #cccccc;
   }
+
+  .message ul {
+    padding-left: 20px; /* Indent for lists */
+  }
+  
+  .message ul li {
+    margin-bottom: 4px; /* Small gap between list items */
+  }
