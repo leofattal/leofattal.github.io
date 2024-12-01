@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Login Example</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    #user-info {
+      display: none;
+      margin-top: 20px;
+    }
+    #profile-pic {
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Google Login Example!</h1>
+  <div id="login-button"></div>
+  <div id="user-info">
+    <img id="profile-pic" alt="Profile Picture" width="100">
+    <p id="greeting"></p>
+    <p id="email"></p>
+  </div>
+
+  <script>
+    function onSignIn(response) {
+      // Decode the Google ID token
+      const user = jwt_decode(response.credential);
+      console.log(user); // Logs user details to the console
+
+      // Display user information
+      document.getElementById('login-button').style.display = 'none';
+      document.getElementById('user-info').style.display = 'block';
+      document.getElementById('profile-pic').src = user.picture;
+      document.getElementById('greeting').innerText = `Hello, ${user.name}!`;
+      document.getElementById('email').innerText = `Email: ${user.email}`;
+    }
+
+    window.onload = function() {
+      // Initialize the Google Sign-In button
+      google.accounts.id.initialize({
+        client_id: '859341970629-8gsjvbl86s7kg2gasposjh00qtfnf5pj.apps.googleusercontent.com',
+        callback: onSignIn,
+      });
+
+      // Render the Google Sign-In button
+      google.accounts.id.renderButton(
+        document.getElementById('login-button'),
+        { theme: 'outline', size: 'large' } // Button appearance
+      );
+
+      // Optionally auto-prompt the user to log in
+      google.accounts.id.prompt();
+    };
+  </script>
+</body>
+</html>
