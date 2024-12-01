@@ -61,6 +61,11 @@ userInput.addEventListener("keypress", async (e) => {
         const newContent = chunk.choices[0].delta.content;
         out += newContent;
         updateMessageContent(agentMessageId, formatResponse(out));
+
+        // Call Bark when text response is complete
+        if (chunk.choices[0].finish_reason === "stop") {
+          await readTextWithBark(out);
+        }
       }
     }
 
@@ -189,6 +194,7 @@ async function analyzeImageURL(imageUrl) {
         const newContent = chunk.choices[0].delta.content;
         out += newContent;
         updateMessageContent(agentMessageId, out);
+
       }
     }
 
@@ -230,6 +236,30 @@ function updateMessageContent(messageElement, content) {
       messageElement.innerHTML = content;
     }
     chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+}
+
+async function readTextWithBark(text) {
+  try {
+    const response = await fetch("https://api-inference.huggingface.co/models/suno/bark", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({ inputs: text }),
+    });
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Play the audio
+    const audioPlayer = document.getElementById("audioPlayer");
+    audioPlayer.src = audioUrl;
+    audioPlayer.style.display = "block"; // Make audio element visible if needed
+    audioPlayer.play();
+  } catch (error) {
+    console.error("Error generating audio with Bark:", error);
   }
 }
 
