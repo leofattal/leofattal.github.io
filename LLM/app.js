@@ -15,6 +15,11 @@ const conversationHistory = [
   { role: "assistant", content: "How can I be of help?" }
 ];
 
+// Get the full URL
+const urlParams = new URLSearchParams(window.location.search);
+
+const TTS = urlParams.get('TTS') ? urlParams.get('TTS') : false; // Set to true to enable text-to-speech
+
 // Display initial message
 addMessage(conversationHistory[0].content, "agent");
 
@@ -62,9 +67,11 @@ userInput.addEventListener("keypress", async (e) => {
         out += newContent;
         updateMessageContent(agentMessageId, formatResponse(out));
 
-        // Call Bark when text response is complete
-        if (chunk.choices[0].finish_reason === "stop") {
-          await readTextWithBark(out);
+        if (TTS) {
+          // Call Bark when text response is complete
+          if (chunk.choices[0].finish_reason === "stop") {
+            await readTextWithBark(out);
+          }
         }
       }
     }
@@ -239,15 +246,64 @@ function updateMessageContent(messageElement, content) {
   }
 }
 
+function splitTextIntoChunks(text, maxLength = 500) {
+  const sentences = text.match(/[^.!?]+[.!?]*/g) || [text]; // Split by sentences
+  const chunks = [];
+  let currentChunk = "";
+
+  sentences.forEach((sentence) => {
+    if ((currentChunk + sentence).length > maxLength) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence;
+    }
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
+
+// async function readTextWithBark(text) {
+//   const chunks = splitTextIntoChunks(text);
+
+//   const audioPromises = chunks.map(async (chunk) => {
+//     const response = await fetch("https://api-inference.huggingface.co/models/suno/bark", {
+//       headers: {
+//         Authorization: `Bearer ${apiKey}`,
+//         "Content-Type": "application/json",
+//         "x-use-cache": "true",
+//       },
+//       method: "POST",
+//       body: JSON.stringify({ inputs: chunk, paramaters: { voice_preset : "v2/en_speaker_0"} }),
+//     });
+//     return await response.blob();
+//   });
+
+//   const audioBlobs = await Promise.all(audioPromises);
+
+//   // Play each audio sequentially
+//   for (const blob of audioBlobs) {
+//     const audioUrl = URL.createObjectURL(blob);
+//     const audioPlayer = document.getElementById("audioPlayer");
+//     audioPlayer.src = audioUrl;
+//     await audioPlayer.play();
+//   }
+// }
+
 async function readTextWithBark(text) {
   try {
     const response = await fetch("https://api-inference.huggingface.co/models/suno/bark", {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "x-use-cache": "true" // Enable caching for speed
       },
       method: "POST",
-      body: JSON.stringify({ inputs: text }),
+      body: JSON.stringify({ inputs: text, paramaters: { voice_preset: "v2/en_speaker_1" } }),
     });
 
     const audioBlob = await response.blob();
