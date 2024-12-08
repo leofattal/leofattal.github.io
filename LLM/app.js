@@ -56,7 +56,7 @@ userInput.addEventListener("keypress", async (e) => {
     const agentMessageId = addMessage("", "agent");
     let out = "";
     const stream = client.chatCompletionStream({
-      model: "meta-llama/Llama-3.1-8B-Instruct",
+      model: "meta-llama/Llama-3.1-8B-Instruct", //"meta-llama/Llama-3.3-70B-Instruct"
       messages: conversationHistory,
       max_tokens: 1000
     });
