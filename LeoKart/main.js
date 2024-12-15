@@ -27,7 +27,7 @@ function init() {
     scene.add(directionalLight);
 
     // Ground
-    const groundGeometry = new THREE.PlaneGeometry(200, 200);
+    const groundGeometry = new THREE.PlaneGeometry(200, 1000);
     const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
@@ -54,8 +54,8 @@ function loadTrack() {
     const shape = new THREE.Shape();
     shape.moveTo(-50, -50);
     shape.lineTo(50, -50);
-    shape.lineTo(50, 50);
-    shape.lineTo(-50, 50);
+    shape.lineTo(50, 500);
+    shape.lineTo(-50, 500);
     shape.lineTo(-50, -50); // Close the shape
 
     // Extrude geometry to create track depth
@@ -88,7 +88,7 @@ function loadModels() {
         for (let i = 0; i < 5; i++) {
             const tree = gltf.scene.clone();
             tree.scale.set(0.8, 0.8, 0.8);
-            tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+            tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
             scene.add(tree);
 
             // Collision box for trees
@@ -102,7 +102,7 @@ function loadModels() {
         for (let i = 0; i < 3; i++) {
             const box = gltf.scene.clone();
             box.scale.set(0.3, 0.3, 0.3);
-            box.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+            box.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
             scene.add(box);
 
             // Collision box for boxes
