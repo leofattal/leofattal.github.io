@@ -2,8 +2,17 @@ let scene, camera, renderer;
 let kart;
 const clock = new THREE.Clock();
 const keyboard = {};
-let track, trackBoundaryBox;
+let track;
 const obstacleBoxes = []; // Store bounding boxes of obstacles
+
+// Physics variables
+let velocity = 0; // Forward velocity
+const acceleration = 0.02; // Acceleration rate
+const deceleration = 0.01; // Deceleration rate
+const maxSpeed = 1.0; // Maximum speed
+const friction = 0.005; // Friction when no input is given
+const turnSpeed = 0.03; // Steering sensitivity
+let direction = new THREE.Vector3(0, 0, -1); // Forward direction
 
 // Initialize the game
 function init() {
@@ -13,7 +22,7 @@ function init() {
 
     // Camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 100, 200);
+    camera.position.set(0, 10, -20); // Default camera position
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
@@ -50,7 +59,6 @@ function init() {
 
 // Load the track
 function loadTrack() {
-    // Example: Define a simple rectangular track manually using THREE.Shape
     const shape = new THREE.Shape();
     shape.moveTo(-50, -50);
     shape.lineTo(50, -50);
@@ -58,7 +66,6 @@ function loadTrack() {
     shape.lineTo(-50, 500);
     shape.lineTo(-50, -50); // Close the shape
 
-    // Extrude geometry to create track depth
     const extrudeSettings = { depth: 1, bevelEnabled: false };
     const trackGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     const trackMaterial = new THREE.MeshLambertMaterial({ color: 0x606060 }); // Asphalt color
@@ -66,9 +73,6 @@ function loadTrack() {
 
     track.rotation.x = -Math.PI / 2; // Lay track flat
     scene.add(track);
-
-    // Track collision box
-    trackBoundaryBox = new THREE.Box3().setFromObject(track);
 }
 
 // Load models (kart, trees, boxes)
@@ -78,8 +82,14 @@ function loadModels() {
     // Load Kart
     loader.load('assets/kart/scene.gltf', (gltf) => {
         kart = gltf.scene;
-        kart.scale.set(0.5, 0.5, 0.5); // Adjust scale to match the scene
+        kart.scale.set(0.5, 0.5, 0.5);
         kart.position.set(0, 0, 0);
+
+        // Attach the camera to the kart
+        kart.add(camera);
+        camera.position.set(0, 100, 200); // Position camera behind and above the kart
+        camera.lookAt(0, 2, 0);
+
         scene.add(kart);
     });
 
@@ -91,7 +101,6 @@ function loadModels() {
             tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
             scene.add(tree);
 
-            // Collision box for trees
             const treeBox = new THREE.Box3().setFromObject(tree);
             obstacleBoxes.push(treeBox);
         }
@@ -105,7 +114,6 @@ function loadModels() {
             box.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
             scene.add(box);
 
-            // Collision box for boxes
             const boxBox = new THREE.Box3().setFromObject(box);
             obstacleBoxes.push(boxBox);
         }
@@ -116,34 +124,32 @@ function loadModels() {
 function animate() {
     const delta = clock.getDelta();
 
-    // Kart movement
     if (kart) {
-        const prevPosition = kart.position.clone(); // Save previous position
+        // Update velocity
+        if (keyboard['ArrowUp']) velocity = Math.min(velocity + acceleration, maxSpeed);
+        if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration, -maxSpeed / 2);
 
-        if (keyboard['ArrowUp']) kart.position.z -= 0.1;
-        if (keyboard['ArrowDown']) kart.position.z += 0.1;
-        if (keyboard['ArrowLeft']) kart.rotation.y += 0.05;
-        if (keyboard['ArrowRight']) kart.rotation.y -= 0.05;
-
-        // Kart collision box
-        const kartBox = new THREE.Box3().setFromObject(kart);
-
-        // Check for collisions with obstacles
-        let collision = false;
-        for (const box of obstacleBoxes) {
-            if (kartBox.intersectsBox(box)) {
-                collision = true;
-                break;
-            }
+        // Apply friction
+        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown']) {
+            if (velocity > 0) velocity = Math.max(velocity - friction, 0);
+            if (velocity < 0) velocity = Math.min(velocity + friction, 0);
         }
 
-        // Check if kart is outside track boundaries
-        if (!trackBoundaryBox.containsBox(kartBox)) {
-            collision = true;
+        // Steering
+        if (keyboard['ArrowLeft'] && velocity !== 0) {
+            const steer = turnSpeed * (velocity / maxSpeed);
+            kart.rotation.y += steer; // Turn left
+        }
+        if (keyboard['ArrowRight'] && velocity !== 0) {
+            const steer = turnSpeed * (velocity / maxSpeed);
+            kart.rotation.y -= steer; // Turn right
         }
 
-        // If collision, revert to previous position
-        if (collision) kart.position.copy(prevPosition);
+        // Update direction vector
+        direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
+
+        // Update kart position
+        kart.position.addScaledVector(direction, velocity);
     }
 
     // Render the scene
