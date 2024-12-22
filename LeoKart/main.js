@@ -9,10 +9,15 @@ const obstacleBoxes = []; // Store bounding boxes of obstacles
 let velocity = 0; // Forward velocity
 const acceleration = 0.02; // Acceleration rate
 const deceleration = 0.01; // Deceleration rate
-const maxSpeed = 1.0; // Maximum speed
+const maxSpeed = 3.0; // Maximum speed
 const friction = 0.005; // Friction when no input is given
 const turnSpeed = 0.03; // Steering sensitivity
 let direction = new THREE.Vector3(0, 0, -1); // Forward direction
+let verticalVelocity = 0; // Kart's vertical speed
+const gravity = -2.0; // Gravity pulling the kart down
+let isOnGround = false; // Whether the kart is touching the track
+
+let gameOver = false; // Track game state
 
 // Initialize the game
 function init() {
@@ -20,8 +25,20 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
 
+    // Add Skybox
+    const skyboxLoader = new THREE.CubeTextureLoader();
+    const skyboxTexture = skyboxLoader.load([
+        'assets/skybox/right.jpg', // Right
+        'assets/skybox/left.jpg', // Left
+        'assets/skybox/top.jpg', // Top
+        'assets/skybox/bottom.jpg', // Bottom
+        'assets/skybox/front.jpg', // Front
+        'assets/skybox/back.jpg', // Back
+    ]);
+    scene.background = skyboxTexture;
+
     // Camera
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     camera.position.set(0, 10, -20); // Default camera position
 
     // Renderer
@@ -34,13 +51,6 @@ function init() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
-
-    // Ground
-    const groundGeometry = new THREE.PlaneGeometry(200, 1000);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
 
     // Load models and track
     loadTrack();
@@ -57,25 +67,22 @@ function init() {
     animate();
 }
 
-// Load the track
 function loadTrack() {
-    const shape = new THREE.Shape();
-    shape.moveTo(-50, -50);
-    shape.lineTo(50, -50);
-    shape.lineTo(50, 500);
-    shape.lineTo(-50, 500);
-    shape.lineTo(-50, -50); // Close the shape
+    const loader = new THREE.GLTFLoader();
 
-    const extrudeSettings = { depth: 1, bevelEnabled: false };
-    const trackGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    const trackMaterial = new THREE.MeshLambertMaterial({ color: 0x606060 }); // Asphalt color
-    track = new THREE.Mesh(trackGeometry, trackMaterial);
+    // Load the GLTF track
+    loader.load('assets/track/scene.gltf', (gltf) => {
+        track = gltf.scene; // Store the track for future reference
+        track.scale.set(10, 10, 10); // Adjust scale (change if needed)
+        track.position.set(0, -20, 0); // Center the track
+        scene.add(track);
 
-    track.rotation.x = -Math.PI / 2; // Lay track flat
-    scene.add(track);
+        console.log('Track loaded successfully!');
+    }, undefined, (error) => {
+        console.error('Error loading track:', error);
+    });
 }
 
-// Load models (kart, trees, boxes)
 function loadModels() {
     const loader = new THREE.GLTFLoader();
 
@@ -83,49 +90,31 @@ function loadModels() {
     loader.load('assets/kart/scene.gltf', (gltf) => {
         kart = gltf.scene;
         kart.scale.set(0.5, 0.5, 0.5);
-        kart.position.set(0, 0, 0);
 
         // Attach the camera to the kart
         kart.add(camera);
         camera.position.set(0, 100, 200); // Position camera behind and above the kart
         camera.lookAt(0, 2, 0);
 
+        kart.position.set(0, 0, -350); // Set the kart's initial position
+        kart.rotation.y = Math.PI / 2;
+
         scene.add(kart);
-    });
-
-    // Load Trees
-    loader.load('assets/tree/scene.gltf', (gltf) => {
-        for (let i = 0; i < 5; i++) {
-            const tree = gltf.scene.clone();
-            tree.scale.set(0.8, 0.8, 0.8);
-            tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
-            scene.add(tree);
-
-            const treeBox = new THREE.Box3().setFromObject(tree);
-            obstacleBoxes.push(treeBox);
-        }
-    });
-
-    // Load Boxes
-    loader.load('assets/box/box.gltf', (gltf) => {
-        for (let i = 0; i < 3; i++) {
-            const box = gltf.scene.clone();
-            box.scale.set(0.3, 0.3, 0.3);
-            box.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 250);
-            scene.add(box);
-
-            const boxBox = new THREE.Box3().setFromObject(box);
-            obstacleBoxes.push(boxBox);
-        }
     });
 }
 
-// Animation loop
+const raycaster = new THREE.Raycaster();
+const downDirection = new THREE.Vector3(0, -1, 0); // Ray direction (downward)
+
+let isLanding = false; // Tracks whether the kart is landing
+
 function animate() {
+    if (gameOver) return; // Stop animation if game is over
+
     const delta = clock.getDelta();
 
     if (kart) {
-        // Update velocity
+        // Update velocity for forward/backward movement
         if (keyboard['ArrowUp']) velocity = Math.min(velocity + acceleration, maxSpeed);
         if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration, -maxSpeed / 2);
 
@@ -148,8 +137,66 @@ function animate() {
         // Update direction vector
         direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
 
-        // Update kart position
+        // Horizontal movement
         kart.position.addScaledVector(direction, velocity);
+
+        // Raycast to find track height
+        raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
+        const intersects = raycaster.intersectObject(track, true);
+
+        if (intersects.length > 0) {
+            const groundPoint = intersects[0].point;
+            const groundHeight = groundPoint.y;
+
+            // Calculate slope (change in height)
+            const heightDifference = groundHeight - kart.position.y;
+
+            // Adjust vertical velocity based on slope when on the ground
+            if (heightDifference > 0 && isOnGround) {
+                verticalVelocity += heightDifference * 0.5; // Boost upward velocity on ramps
+            } else if (!isOnGround) {
+                verticalVelocity += gravity * delta; // Gravity when airborne
+            }
+
+            // Check if the kart is on the ground
+            if (kart.position.y <= groundHeight + 0.5) {
+                if (!isOnGround) {
+                    // Landing: Add bounce effect
+                    verticalVelocity = Math.abs(verticalVelocity) * 0.5; // Bounce upward with reduced velocity
+                    isLanding = true; // Indicate the kart is landing
+                }
+
+                kart.position.y = groundHeight + 0.5; // Stick to the ground
+                isOnGround = true;
+
+                // Damping the bounce
+                if (isLanding) {
+                    verticalVelocity *= 0.8; // Reduce bounce velocity
+                    if (Math.abs(verticalVelocity) < 0.01) {
+                        verticalVelocity = 0; // Stop bouncing
+                        isLanding = false;
+                    }
+                }
+            } else {
+                isOnGround = false; // Kart is in the air
+            }
+        } else {
+            isOnGround = false; // Kart is in the air
+        }
+
+        // Apply gravity if the kart is in the air
+        if (!isOnGround) {
+            verticalVelocity += gravity * delta; // Accelerate downward
+        }
+
+        // Update vertical position
+        kart.position.y += verticalVelocity;
+
+        // Check for game over
+        if (kart.position.z < -1000) {
+            showGameOver();
+            return;
+        }
     }
 
     // Render the scene
@@ -158,7 +205,33 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// Resize the renderer when the window is resized
+function showGameOver() {
+    gameOver = true;
+
+    // Create and display the GAME OVER message
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.innerHTML = 'GAME OVER';
+    gameOverDiv.style.position = 'absolute';
+    gameOverDiv.style.top = '50%';
+    gameOverDiv.style.left = '50%';
+    gameOverDiv.style.transform = 'translate(-50%, -50%)';
+    gameOverDiv.style.fontSize = '5rem';
+    gameOverDiv.style.color = 'red';
+    gameOverDiv.style.fontWeight = 'bold';
+    gameOverDiv.style.zIndex = '100';
+    document.body.appendChild(gameOverDiv);
+
+    // Restart the game after 3 seconds
+    setTimeout(() => {
+        document.body.removeChild(gameOverDiv);
+        restartGame();
+    }, 3000);
+}
+
+function restartGame() {
+    location.reload(); // Reload the page to reset the game
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
