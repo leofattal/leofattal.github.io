@@ -5,6 +5,50 @@ const keyboard = {};
 let track;
 const obstacleBoxes = []; // Store bounding boxes of obstacles
 
+let isAccelerating = false;
+let startX = 0;
+let currentX = 0;
+
+function setupTouchControls() {
+    // Detect when a finger touches the screen
+    document.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        currentX = touch.clientX;
+        isAccelerating = true; // Start accelerating
+    });
+
+    // Detect finger movement (swipe)
+    document.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        currentX = touch.clientX; // Update current X position
+
+        // Calculate swipe direction
+        const deltaX = currentX - startX;
+
+        if (deltaX < -20) {
+            // Swipe left to steer left
+            if (velocity !== 0) {
+                const steer = turnSpeed * (velocity / maxSpeed);
+                kart.rotation.y += steer; // Turn left
+            }
+        } else if (deltaX > 20) {
+            // Swipe right to steer right
+            if (velocity !== 0) {
+                const steer = turnSpeed * (velocity / maxSpeed);
+                kart.rotation.y -= steer; // Turn right
+            }
+        }
+
+        startX = currentX; // Reset startX for continuous swiping
+    });
+
+    // Detect when the finger is lifted
+    document.addEventListener('touchend', () => {
+        isAccelerating = false; // Stop accelerating
+    });
+}
+
 // Physics variables
 let velocity = 0; // Forward velocity
 const acceleration = 0.02; // Acceleration rate
@@ -63,6 +107,9 @@ function init() {
     document.addEventListener('keydown', (e) => keyboard[e.key] = true);
     document.addEventListener('keyup', (e) => keyboard[e.key] = false);
 
+    // Set up touch controls
+    setupTouchControls();
+    
     // Start the animation loop
     animate();
 }
@@ -115,11 +162,11 @@ function animate() {
 
     if (kart) {
         // Update velocity for forward/backward movement
-        if (keyboard['ArrowUp']) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
+        if (keyboard['ArrowUp'] || isAccelerating) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
         if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
 
         // Apply friction
-        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown']) {
+        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating) {
             if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
             if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
         }
