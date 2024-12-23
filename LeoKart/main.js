@@ -9,6 +9,20 @@ let isAccelerating = false;
 let startX = 0;
 let currentX = 0;
 
+// Physics variables
+let velocity = 0; // Forward velocity
+const acceleration = 0.02; // Acceleration rate
+const deceleration = 0.01; // Deceleration rate
+const maxSpeed = 3.5; // Maximum speed
+const friction = 0.005; // Friction when no input is given
+const turnSpeed = 0.03; // Steering sensitivity
+let direction = new THREE.Vector3(0, 0, -1); // Forward direction
+let verticalVelocity = 0; // Kart's vertical speed
+const gravity = -2.0; // Gravity pulling the kart down
+let isOnGround = false; // Whether the kart is touching the track
+
+let gameOver = false; // Track game state
+
 function setupTouchControls() {
     // Detect when a finger touches the screen
     document.addEventListener('touchstart', (e) => {
@@ -30,13 +44,13 @@ function setupTouchControls() {
             // Swipe left to steer left
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y += steer; // Turn left
+                kart.rotation.y += 5*steer; // Turn left
             }
         } else if (deltaX > 20) {
             // Swipe right to steer right
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y -= steer; // Turn right
+                kart.rotation.y -= 5*steer; // Turn right
             }
         }
 
@@ -48,20 +62,6 @@ function setupTouchControls() {
         isAccelerating = false; // Stop accelerating
     });
 }
-
-// Physics variables
-let velocity = 0; // Forward velocity
-const acceleration = 0.02; // Acceleration rate
-const deceleration = 0.01; // Deceleration rate
-const maxSpeed = 3.5; // Maximum speed
-const friction = 0.005; // Friction when no input is given
-const turnSpeed = 0.03; // Steering sensitivity
-let direction = new THREE.Vector3(0, 0, -1); // Forward direction
-let verticalVelocity = 0; // Kart's vertical speed
-const gravity = -2.0; // Gravity pulling the kart down
-let isOnGround = false; // Whether the kart is touching the track
-
-let gameOver = false; // Track game state
 
 // Initialize the game
 function init() {
@@ -109,7 +109,7 @@ function init() {
 
     // Set up touch controls
     setupTouchControls();
-    
+
     // Start the animation loop
     animate();
 }
