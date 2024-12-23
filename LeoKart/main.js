@@ -40,17 +40,17 @@ function setupTouchControls() {
         // Calculate swipe direction
         const deltaX = currentX - startX;
 
-        if (deltaX < -20) {
+        if (deltaX < -5) {
             // Swipe left to steer left
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y += 5*steer; // Turn left
+                kart.rotation.y += steer; // Turn left
             }
-        } else if (deltaX > 20) {
+        } else if (deltaX > 5) {
             // Swipe right to steer right
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y -= 5*steer; // Turn right
+                kart.rotation.y -= steer; // Turn right
             }
         }
 
