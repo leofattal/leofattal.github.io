@@ -9,7 +9,7 @@ const obstacleBoxes = []; // Store bounding boxes of obstacles
 let velocity = 0; // Forward velocity
 const acceleration = 0.02; // Acceleration rate
 const deceleration = 0.01; // Deceleration rate
-const maxSpeed = 3.0; // Maximum speed
+const maxSpeed = 3.5; // Maximum speed
 const friction = 0.005; // Friction when no input is given
 const turnSpeed = 0.03; // Steering sensitivity
 let direction = new THREE.Vector3(0, 0, -1); // Forward direction
@@ -115,13 +115,13 @@ function animate() {
 
     if (kart) {
         // Update velocity for forward/backward movement
-        if (keyboard['ArrowUp']) velocity = Math.min(velocity + acceleration, maxSpeed);
-        if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration, -maxSpeed / 2);
+        if (keyboard['ArrowUp']) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
+        if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
 
         // Apply friction
         if (!keyboard['ArrowUp'] && !keyboard['ArrowDown']) {
-            if (velocity > 0) velocity = Math.max(velocity - friction, 0);
-            if (velocity < 0) velocity = Math.min(velocity + friction, 0);
+            if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
+            if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
         }
 
         // Steering
@@ -138,7 +138,7 @@ function animate() {
         direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
 
         // Horizontal movement
-        kart.position.addScaledVector(direction, velocity);
+        kart.position.addScaledVector(direction, velocity * delta / .008);
 
         // Raycast to find track height
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
@@ -150,10 +150,20 @@ function animate() {
 
             // Calculate slope (change in height)
             const heightDifference = groundHeight - kart.position.y;
+            const roadNormal = intersects[0].face.normal; // (0,0,-1) for flat
+            // console.log(roadNormal);
+
+            // Update Pitch
+            if (isOnGround) {
+                const pitch = Math.atan2(roadNormal.x, Math.sqrt(roadNormal.y * roadNormal.y + roadNormal.z * roadNormal.z));
+                // console.log(pitch*180/Math.PI);
+                // kart.rotation.x = pitch;
+                console.log(kart.rotation);
+            }
 
             // Adjust vertical velocity based on slope when on the ground
             if (heightDifference > 0 && isOnGround) {
-                verticalVelocity += heightDifference * 0.5; // Boost upward velocity on ramps
+                verticalVelocity += heightDifference * 0.5 * delta / .008; // Boost upward velocity on ramps
             } else if (!isOnGround) {
                 verticalVelocity += gravity * delta; // Gravity when airborne
             }
@@ -190,10 +200,10 @@ function animate() {
         }
 
         // Update vertical position
-        kart.position.y += verticalVelocity;
+        kart.position.y += verticalVelocity * delta / .008;
 
         // Check for game over
-        if (kart.position.z < -1000) {
+        if (kart.position.y < -1000) {
             showGameOver();
             return;
         }
