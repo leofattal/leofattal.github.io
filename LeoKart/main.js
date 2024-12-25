@@ -18,8 +18,9 @@ const friction = 0.005; // Friction when no input is given
 const turnSpeed = 0.03; // Steering sensitivity
 let direction = new THREE.Vector3(0, 0, -1); // Forward direction
 let verticalVelocity = 0; // Kart's vertical speed
-const gravity = -2.0; // Gravity pulling the kart down
-let isOnGround = false; // Whether the kart is touching the track
+const gravity = -3.0; // Gravity pulling the kart down
+let isOnGround = true; // Whether the kart is touching the track
+let oldPitch = 0;
 
 let gameOver = false; // Track game state
 
@@ -44,13 +45,15 @@ function setupTouchControls() {
             // Swipe left to steer left
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y += steer; // Turn left
+                // kart.rotation.y += steer; // Turn left
+                kart.rotateY(steer);
             }
         } else if (deltaX > 5) {
             // Swipe right to steer right
             if (velocity !== 0) {
                 const steer = turnSpeed * (velocity / maxSpeed);
-                kart.rotation.y -= steer; // Turn right
+                // kart.rotation.y -= steer; // Turn right
+                kart.rotateY(-steer);
             }
         }
 
@@ -144,7 +147,8 @@ function loadModels() {
         camera.lookAt(0, 2, 0);
 
         kart.position.set(0, 0, -350); // Set the kart's initial position
-        kart.rotation.y = Math.PI / 2;
+        // kart.rotation.y = Math.PI / 2;
+        kart.rotateY(Math.PI / 2);
 
         scene.add(kart);
     });
@@ -172,11 +176,11 @@ function animate() {
         }
 
         // Steering
-        if (keyboard['ArrowLeft'] && velocity !== 0) {
+        if (keyboard['ArrowLeft'] && velocity !== 0 && isOnGround) {
             const steer = turnSpeed * (velocity / maxSpeed);
             kart.rotation.y += steer; // Turn left
         }
-        if (keyboard['ArrowRight'] && velocity !== 0) {
+        if (keyboard['ArrowRight'] && velocity !== 0 && isOnGround) {
             const steer = turnSpeed * (velocity / maxSpeed);
             kart.rotation.y -= steer; // Turn right
         }
@@ -197,20 +201,22 @@ function animate() {
 
             // Calculate slope (change in height)
             const heightDifference = groundHeight - kart.position.y;
+            
             const roadNormal = intersects[0].face.normal; // (0,0,-1) for flat
             // console.log(roadNormal);
 
             // Update Pitch
-            if (isOnGround) {
-                const pitch = Math.atan2(roadNormal.x, Math.sqrt(roadNormal.y * roadNormal.y + roadNormal.z * roadNormal.z));
-                // console.log(pitch*180/Math.PI);
-                // kart.rotation.x = pitch;
-                console.log(kart.rotation);
+            if (isOnGround && velocity !== 0) {
+                // console.log(heightDifference, velocity * delta / .008);
+                const pitch = Math.atan2(heightDifference,velocity * delta / .008);
+                console.log(pitch*180/Math.PI);
+                //kart.rotateX(pitch-oldPitch);
+                oldPitch = pitch;
             }
 
             // Adjust vertical velocity based on slope when on the ground
             if (heightDifference > 0 && isOnGround) {
-                verticalVelocity += heightDifference * 0.5 * delta / .008; // Boost upward velocity on ramps
+                verticalVelocity += heightDifference * delta / .008; // Boost upward velocity on ramps
             } else if (!isOnGround) {
                 verticalVelocity += gravity * delta; // Gravity when airborne
             }
@@ -223,7 +229,7 @@ function animate() {
                     isLanding = true; // Indicate the kart is landing
                 }
 
-                kart.position.y = groundHeight + 0.5; // Stick to the ground
+                kart.position.y = groundHeight; // Stick to the ground
                 isOnGround = true;
 
                 // Damping the bounce
