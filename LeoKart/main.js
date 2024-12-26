@@ -152,6 +152,19 @@ function loadModels() {
 
         scene.add(kart);
     });
+
+    // Load Donut
+    loader.load('assets/donut.gltf', (gltf) => {
+        const donut = gltf.scene;
+        donut.scale.set(200, 200, 200);
+        donut.rotateZ(Math.PI / 2);
+        donut.position.set(1000, 300, 3250); // Set the donut's initial position
+        scene.add(donut);
+
+        // Create a bounding box for the donut
+        const box = new THREE.Box3().setFromObject(donut);
+        obstacleBoxes.push(box);
+    });
 }
 
 const raycaster = new THREE.Raycaster();
@@ -163,6 +176,7 @@ function animate() {
     if (gameOver) return; // Stop animation if game is over
 
     const delta = clock.getDelta();
+    
 
     if (kart) {
         // Update velocity for forward/backward movement
@@ -190,6 +204,7 @@ function animate() {
 
         // Horizontal movement
         kart.position.addScaledVector(direction, velocity * delta / .008);
+        console.log(kart.position);
 
         // Raycast to find track height
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
@@ -209,7 +224,7 @@ function animate() {
             if (isOnGround && velocity !== 0) {
                 // console.log(heightDifference, velocity * delta / .008);
                 const pitch = Math.atan2(heightDifference,velocity * delta / .008);
-                console.log(pitch*180/Math.PI);
+                // console.log(pitch*180/Math.PI);
                 //kart.rotateX(pitch-oldPitch);
                 oldPitch = pitch;
             }
