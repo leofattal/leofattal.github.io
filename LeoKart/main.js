@@ -24,6 +24,56 @@ let oldPitch = 0;
 
 let gameOver = false; // Track game state
 
+let audioContext = null;
+let audioBuffer = null;
+let audioSource = null;
+let gainNode = null;
+
+function loadKartSound() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Fetch and decode the MP3 file
+    fetch('assets/kart-sound.mp3')
+        .then((response) => response.arrayBuffer())
+        .then((data) => audioContext.decodeAudioData(data))
+        .then((buffer) => {
+            audioBuffer = buffer;
+            console.log("Kart sound loaded successfully!");
+        })
+        .catch((error) => {
+            console.error("Error loading kart sound:", error);
+        });
+}
+
+function setupAudio() {
+    if (!audioContext || !audioBuffer || audioSource) return;
+
+    // Create a new audio source for playback
+    audioSource = audioContext.createBufferSource();
+    audioSource.buffer = audioBuffer;
+    audioSource.loop = true; // Loop the sound for continuous playback
+
+    // Create a gain node to control the volume
+    gainNode = audioContext.createGain();
+    gainNode.gain.value = 0.1; // Initial volume
+
+    // Connect audio source -> gain -> audio output
+    audioSource.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Start playback
+    audioSource.start();
+    console.log("Kart sound started");
+}
+
+// Listen for the first key press to initialize the audio
+document.addEventListener('keydown', function initializeAudioContext() {
+    setupAudio();
+    document.removeEventListener('keydown', initializeAudioContext); // Remove listener after first key press
+});
+
 function setupTouchControls() {
     // Detect when a finger touches the screen
     document.addEventListener('touchstart', (e) => {
@@ -102,6 +152,8 @@ function init() {
     // Load models and track
     loadTrack();
     loadModels();
+    // Load the kart sound
+    loadKartSound();
 
     // Handle resize
     window.addEventListener('resize', onWindowResize);
@@ -176,7 +228,7 @@ function animate() {
     if (gameOver) return; // Stop animation if game is over
 
     const delta = clock.getDelta();
-    
+
 
     if (kart) {
         // Update velocity for forward/backward movement
@@ -187,6 +239,19 @@ function animate() {
         if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating) {
             if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
             if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
+        }
+
+        // Adjust engine sound pitch based on velocity
+        if (audioSource) {
+            // Adjust playback rate based on velocity
+            const baseRate = 0.5; // Minimum playback rate
+            const maxRate = 2.0; // Maximum playback rate
+            const playbackRate = baseRate + (velocity / maxSpeed) * (maxRate - baseRate);
+            audioSource.playbackRate.value = playbackRate; // Set the playback rate
+            gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1; // Scale volume with velocity
+            if (velocity === 0) {
+                gainNode.gain.value = 0; // Mute the sound
+            }
         }
 
         // Steering
@@ -204,7 +269,7 @@ function animate() {
 
         // Horizontal movement
         kart.position.addScaledVector(direction, velocity * delta / .008);
-        console.log(kart.position);
+        // console.log(kart.position);
 
         // Raycast to find track height
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
@@ -216,14 +281,14 @@ function animate() {
 
             // Calculate slope (change in height)
             const heightDifference = groundHeight - kart.position.y;
-            
+
             const roadNormal = intersects[0].face.normal; // (0,0,-1) for flat
             // console.log(roadNormal);
 
             // Update Pitch
             if (isOnGround && velocity !== 0) {
                 // console.log(heightDifference, velocity * delta / .008);
-                const pitch = Math.atan2(heightDifference,velocity * delta / .008);
+                const pitch = Math.atan2(heightDifference, velocity * delta / .008);
                 // console.log(pitch*180/Math.PI);
                 //kart.rotateX(pitch-oldPitch);
                 oldPitch = pitch;
