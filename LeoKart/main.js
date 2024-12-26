@@ -283,15 +283,28 @@ function animate() {
             const heightDifference = groundHeight - kart.position.y;
 
             const roadNormal = intersects[0].face.normal; // (0,0,-1) for flat
-            // console.log(roadNormal);
+            intersects[0].object.updateMatrixWorld();
+            roadNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersects[0].object.matrixWorld)).normalize();
+
+            const forward = direction.clone(); // Kart's forward vector
+            const right = new THREE.Vector3().crossVectors(roadNormal, forward).normalize();
+            const adjustedForward = new THREE.Vector3().crossVectors(right, roadNormal).normalize();
+            // console.log(forward, adjustedForward);
+
 
             // Update Pitch
             if (isOnGround && velocity !== 0) {
                 // console.log(heightDifference, velocity * delta / .008);
-                const pitch = Math.atan2(heightDifference, velocity * delta / .008);
-                // console.log(pitch*180/Math.PI);
-                //kart.rotateX(pitch-oldPitch);
-                oldPitch = pitch;
+                // const pitch = Math.atan2(heightDifference, velocity * delta / .008);
+                // const pitch = Math.acos(Math.max(Math.min(adjustedForward.dot(forward), 1), -1));
+                const pitch = forward.angleTo(adjustedForward);
+                console.log(pitch * 180 / Math.PI);
+                const pitchQuaternion = new THREE.Quaternion();
+                pitchQuaternion.setFromAxisAngle(right, pitch);
+                // console.log(pitchQuaternion);
+                // kart.quaternion.multiply(pitchQuaternion);
+                // kart.rotateX(pitch-oldPitch);
+                // oldPitch = pitch;
             }
 
             // Adjust vertical velocity based on slope when on the ground
