@@ -1,5 +1,5 @@
 let scene, camera, renderer;
-let kart, donut;
+let kart, donut, coin;
 const clock = new THREE.Clock();
 const keyboard = {};
 let track;
@@ -224,6 +224,19 @@ function loadModels() {
         obstacleBoxes.push(box);
 
     });
+
+    // Load Coin
+    loader.load('assets/coin.gltf', (gltf) => {
+        coin = gltf.scene;
+        coin.scale.set(5,5,5);
+        coin.position.set(720, 10, 530); // Set the donut's initial position
+        scene.add(coin);
+
+        // Create a bounding box for the donut
+        const box = new THREE.Box3().setFromObject(coin);
+        obstacleBoxes.push(box);
+
+    });
 }
 
 const raycaster = new THREE.Raycaster();
@@ -296,7 +309,9 @@ function animate() {
     if (donut) {
         donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
     }
-
+    if (coin) {
+        coin.rotateY(2*donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
+    }
     // Adjust engine sound pitch based on velocity
     if (audioSource) {
         // Adjust playback rate based on velocity
