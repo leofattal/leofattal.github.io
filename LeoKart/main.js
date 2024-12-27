@@ -202,11 +202,11 @@ function loadModels() {
         camera.position.set(0, 100, 200); // Position camera behind and above the kart
         camera.lookAt(0, 2, 0);
 
-        kart.position.set(0, 0, -350); // Set the kart's initial position
+        kart.position.set(720, 0,  700); // Set the kart's initial position
         // kart.rotation.y = Math.PI / 2;
-        kart.rotateY(Math.PI / 2);
-        direction.set(-1, 0, 0);
-        right.set(0, 0, -1);
+        // kart.rotateY(Math.PI / 2);
+        // direction.set(-1, 0, 0);
+        // right.set(0, 0, -1);
 
         scene.add(kart);
     });
@@ -357,7 +357,7 @@ function animate() {
 
             if (isOnGround || isLanding) {
                 const pitchQuaternion = getQuaternionFromVectors(up, roadNormal)
-                console.log('pitchQuaternion: ',pitchQuaternion);
+                // console.log('pitchQuaternion: ',pitchQuaternion);
                 kart.quaternion.premultiply(pitchQuaternion); // Apply the rotation to the kart
 
                 const forward = direction.clone().applyQuaternion(pitchQuaternion);
@@ -365,7 +365,7 @@ function animate() {
                 
                 const yawQuaternion = new THREE.Quaternion();
                 yawQuaternion.setFromAxisAngle(up, steer); // Create a quaternion for the rotation
-                console.log('yawQuaternion: ',yawQuaternion);
+                // console.log('yawQuaternion: ',yawQuaternion);
                 kart.quaternion.premultiply(yawQuaternion); // Apply the rotation to the kart
                 direction = forward.applyAxisAngle(up, steer);
                 right = new THREE.Vector3().crossVectors(direction, up).normalize();
@@ -409,7 +409,8 @@ function animate() {
         // Update position
         kart.position.addScaledVector(direction, velocity * delta / .008);
         kart.position.y += verticalVelocity * delta / .008;
-        console.log(right,up,direction);
+        console.log(kart.position);
+        console.log('direction: ',direction);
 
         // Check for game over
         if (kart.position.y < -1000) {
