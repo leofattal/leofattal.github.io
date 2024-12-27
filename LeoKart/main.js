@@ -360,7 +360,8 @@ function animate() {
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
         raycasterFront.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), direction);
-        const intersectsFront = raycasterFront.intersectObject(track, true);
+        const objectsToCheck = [track, donut]; // List of objects to detect collisions with
+        const intersectsFront = raycasterFront.intersectObjects(objectsToCheck, true);
 
         if (intersects.length > 0) {
             const groundPoint = intersects[0].point;
