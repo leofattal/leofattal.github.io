@@ -20,9 +20,10 @@ let direction = new THREE.Vector3(0, 0, -1); // Forward direction
 let up = new THREE.Vector3(0, 1, 0);
 let right = new THREE.Vector3(1, 0, 0);
 let verticalVelocity = 0; // Kart's vertical speed
-const gravity = -3.0; // Gravity pulling the kart down
+const gravity = -2; // Gravity pulling the kart down
 let isOnGround = true; // Whether the kart is touching the track
 let oldPitch = 0;
+let steer=0;
 
 let donutAngularVelocity = 0.05; // Angular velocity in radians per frame
 let gameOver = false; // Track game state
@@ -230,6 +231,64 @@ const downDirection = new THREE.Vector3(0, -1, 0); // Ray direction (downward)
 
 let isLanding = false; // Tracks whether the kart is landing
 
+function getSignedAngle(u, v, axis) {
+    // Ensure vectors are normalized
+    u.normalize();
+    v.normalize();
+
+    // Compute the dot product (cosine of the angle)
+    const dot = u.dot(v);
+
+    // Clamp dot to avoid precision errors
+    const clampedDot = Math.max(-1, Math.min(1, dot));
+
+    // Calculate the angle in radians
+    const angle = Math.acos(clampedDot);
+
+    // Compute the cross product to determine the direction
+    const cross = new THREE.Vector3().crossVectors(u, v);
+
+    // Determine the sign of the angle using the axis
+    const sign = Math.sign(cross.dot(axis));
+
+    // Return the signed angle
+    return angle * sign;
+}
+
+function getQuaternionFromVectors(u0, u1) {
+    // Normalize the input vectors
+    const v0 = u0.clone().normalize();
+    const v1 = u1.clone().normalize();
+
+    // Compute the dot product to determine the angle
+    const dot = v0.dot(v1);
+
+    // If the vectors are already aligned, return the identity quaternion
+    if (dot > 0.99999) {
+        return new THREE.Quaternion(); // Identity quaternion
+    }
+
+    // If the vectors are opposite, create a rotation 180° around a perpendicular axis
+    if (dot < -0.99999) {
+        const perpendicularAxis = new THREE.Vector3(1, 0, 0).cross(v0);
+        if (perpendicularAxis.length() < 0.00001) {
+            perpendicularAxis.set(0, 1, 0).cross(v0); // Try a different axis
+        }
+        perpendicularAxis.normalize();
+        return new THREE.Quaternion().setFromAxisAngle(perpendicularAxis, Math.PI);
+    }
+
+    // Otherwise, compute the quaternion
+    const cross = new THREE.Vector3().crossVectors(v0, v1); // Cross product
+    const q = new THREE.Quaternion(
+        cross.x,
+        cross.y,
+        cross.z,
+        1 + dot // Scalar part
+    );
+    return q.normalize(); // Normalize the quaternion before returning
+}
+
 function animate() {
     if (gameOver) return; // Stop animation if game is over
 
@@ -238,45 +297,46 @@ function animate() {
         donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
     }
 
+    // Adjust engine sound pitch based on velocity
+    if (audioSource) {
+        // Adjust playback rate based on velocity
+        const baseRate = 0.5; // Minimum playback rate
+        const maxRate = 2.0; // Maximum playback rate
+        const playbackRate = baseRate + (velocity / maxSpeed) * (maxRate - baseRate);
+        audioSource.playbackRate.value = playbackRate; // Set the playback rate
+        gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1; // Scale volume with velocity
+        if (velocity === 0) {
+            gainNode.gain.value = 0; // Mute the sound
+        }
+    }
+
     if (kart) {
         // Update velocity for forward/backward movement
-        if (keyboard['ArrowUp'] || isAccelerating) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
-        if (keyboard['ArrowDown']) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
+        if ((keyboard['ArrowUp'] || isAccelerating) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
+        if (keyboard['ArrowDown'] && isOnGround) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
 
         // Apply friction
-        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating) {
+        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating && isOnGround) {
             if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
             if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
         }
 
-        // Adjust engine sound pitch based on velocity
-        if (audioSource) {
-            // Adjust playback rate based on velocity
-            const baseRate = 0.5; // Minimum playback rate
-            const maxRate = 2.0; // Maximum playback rate
-            const playbackRate = baseRate + (velocity / maxSpeed) * (maxRate - baseRate);
-            audioSource.playbackRate.value = playbackRate; // Set the playback rate
-            gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1; // Scale volume with velocity
-            if (velocity === 0) {
-                gainNode.gain.value = 0; // Mute the sound
-            }
-        }
-
         // Steering
+        steer = 0;
         if (keyboard['ArrowLeft'] && velocity !== 0 && isOnGround) {
-            const steer = turnSpeed * (velocity / maxSpeed);
-            kart.rotation.y += steer; // Turn left
+            steer = turnSpeed * (velocity / maxSpeed);
+            //kart.rotation.y += steer; // Turn left
         }
         if (keyboard['ArrowRight'] && velocity !== 0 && isOnGround) {
-            const steer = turnSpeed * (velocity / maxSpeed);
-            kart.rotation.y -= steer; // Turn right
+            steer = -turnSpeed * (velocity / maxSpeed);
+            //kart.rotation.y -= steer; // Turn right
         }
 
         // Update direction vector
-        direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
+        //direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
 
         // Horizontal movement
-        kart.position.addScaledVector(direction, velocity * delta / .008);
+        //kart.position.addScaledVector(direction, velocity * delta / .008);
         // console.log(kart.position);
 
         // Raycast to find track height
@@ -290,35 +350,28 @@ function animate() {
             // Calculate slope (change in height)
             const heightDifference = groundHeight - kart.position.y;
 
-            const roadNormal = intersects[0].face.normal; // (0,0,-1) for flat
+            const roadNormal = intersects[0].face.normal.clone(); // (0,0,-1) for flat
             intersects[0].object.updateMatrixWorld();
             roadNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersects[0].object.matrixWorld)).normalize();
+            roadNormal.negate(); // Invert the normal
 
-            const forward = direction.clone(); // Kart's forward vector
-            const right = new THREE.Vector3().crossVectors(roadNormal, forward).normalize();
-            const adjustedForward = new THREE.Vector3().crossVectors(right, roadNormal).normalize();
-            // console.log(forward, adjustedForward);
+            if (isOnGround || isLanding) {
+                const pitchQuaternion = getQuaternionFromVectors(up, roadNormal)
+                console.log('pitchQuaternion: ',pitchQuaternion);
+                kart.quaternion.premultiply(pitchQuaternion); // Apply the rotation to the kart
 
-
-            // Update Pitch
-            if (isOnGround && velocity !== 0) {
-                // console.log(heightDifference, velocity * delta / .008);
-                // const pitch = Math.atan2(heightDifference, velocity * delta / .008);
-                // const pitch = Math.acos(Math.max(Math.min(adjustedForward.dot(forward), 1), -1));
-                const pitch = forward.angleTo(adjustedForward);
-                console.log(pitch * 180 / Math.PI);
-                const pitchQuaternion = new THREE.Quaternion();
-                pitchQuaternion.setFromAxisAngle(right, pitch);
-                // console.log(pitchQuaternion);
-                // kart.quaternion.multiply(pitchQuaternion);
-                // kart.rotateX(pitch-oldPitch);
-                // oldPitch = pitch;
+                const forward = direction.clone().applyQuaternion(pitchQuaternion);
+                up = roadNormal.clone();
+                
+                const yawQuaternion = new THREE.Quaternion();
+                yawQuaternion.setFromAxisAngle(up, steer); // Create a quaternion for the rotation
+                console.log('yawQuaternion: ',yawQuaternion);
+                kart.quaternion.premultiply(yawQuaternion); // Apply the rotation to the kart
+                direction = forward.applyAxisAngle(up, steer);
+                right = new THREE.Vector3().crossVectors(direction, up).normalize();
             }
 
-            // Adjust vertical velocity based on slope when on the ground
-            if (heightDifference > 0 && isOnGround) {
-                verticalVelocity += heightDifference * delta / .008; // Boost upward velocity on ramps
-            } else if (!isOnGround) {
+            if (!isOnGround) {
                 verticalVelocity += gravity * delta; // Gravity when airborne
             }
 
@@ -353,8 +406,10 @@ function animate() {
             verticalVelocity += gravity * delta; // Accelerate downward
         }
 
-        // Update vertical position
+        // Update position
+        kart.position.addScaledVector(direction, velocity * delta / .008);
         kart.position.y += verticalVelocity * delta / .008;
+        console.log(right,up,direction);
 
         // Check for game over
         if (kart.position.y < -1000) {
