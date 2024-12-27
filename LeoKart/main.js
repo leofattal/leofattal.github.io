@@ -23,7 +23,8 @@ let verticalVelocity = 0; // Kart's vertical speed
 const gravity = -2; // Gravity pulling the kart down
 let isOnGround = true; // Whether the kart is touching the track
 let oldPitch = 0;
-let steer=0;
+let steer = 0;
+let obstacleNormal = null;
 
 let donutAngularVelocity = 0.05; // Angular velocity in radians per frame
 let gameOver = false; // Track game state
@@ -202,7 +203,7 @@ function loadModels() {
         camera.position.set(0, 100, 200); // Position camera behind and above the kart
         camera.lookAt(0, 2, 0);
 
-        kart.position.set(720, 0,  700); // Set the kart's initial position
+        kart.position.set(720, 0, 700); // Set the kart's initial position
         // kart.rotation.y = Math.PI / 2;
         // kart.rotateY(Math.PI / 2);
         // direction.set(-1, 0, 0);
@@ -228,7 +229,7 @@ function loadModels() {
     // Load Coin
     loader.load('assets/coin.gltf', (gltf) => {
         coin = gltf.scene;
-        coin.scale.set(5,5,5);
+        coin.scale.set(5, 5, 5);
         coin.position.set(720, 10, 530); // Set the donut's initial position
         scene.add(coin);
 
@@ -241,6 +242,7 @@ function loadModels() {
 
 const raycaster = new THREE.Raycaster();
 const downDirection = new THREE.Vector3(0, -1, 0); // Ray direction (downward)
+const raycasterFront = new THREE.Raycaster();
 
 let isLanding = false; // Tracks whether the kart is landing
 
@@ -310,7 +312,7 @@ function animate() {
         donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
     }
     if (coin) {
-        coin.rotateY(2*donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
+        coin.rotateY(2 * donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
     }
     // Adjust engine sound pitch based on velocity
     if (audioSource) {
@@ -357,6 +359,8 @@ function animate() {
         // Raycast to find track height
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
+        raycasterFront.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), direction);
+        const intersectsFront = raycasterFront.intersectObject(track, true);
 
         if (intersects.length > 0) {
             const groundPoint = intersects[0].point;
@@ -377,7 +381,7 @@ function animate() {
 
                 const forward = direction.clone().applyQuaternion(pitchQuaternion);
                 up = roadNormal.clone();
-                
+
                 const yawQuaternion = new THREE.Quaternion();
                 yawQuaternion.setFromAxisAngle(up, steer); // Create a quaternion for the rotation
                 // console.log('yawQuaternion: ',yawQuaternion);
@@ -416,16 +420,54 @@ function animate() {
             isOnGround = false; // Kart is in the air
         }
 
+        if (intersectsFront.length > 0) {
+            const frontPoint = intersectsFront[0].point;
+
+            // Check the distance from the raycaster's origin to the frontPoint
+            const distanceToFrontPoint = raycaster.ray.origin.distanceTo(frontPoint);
+            if (distanceToFrontPoint < 10) {
+                // Get the obstacle's normal vector
+                obstacleNormal = intersectsFront[0].face.normal.clone();
+                intersectsFront[0].object.updateMatrixWorld();
+                obstacleNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersectsFront[0].object.matrixWorld)).normalize();
+                if (obstacleNormal.dot(direction) > 0) {
+                    obstacleNormal.negate(); // Invert the normal if necessary
+                }
+            } else {
+                obstacleNormal = null;
+            }
+        } else {
+            obstacleNormal = null;
+        }
+
         // Apply gravity if the kart is in the air
         if (!isOnGround) {
             verticalVelocity += gravity * delta; // Accelerate downward
         }
 
         // Update position
-        kart.position.addScaledVector(direction, velocity * delta / .008);
+        if (obstacleNormal) {
+            console.log('obstacleNormal: ', obstacleNormal);
+            console.log(kart.position);
+            console.log('direction: ', direction);
+            // Calculate the current velocity vector
+            const velocityVector = direction.clone().multiplyScalar(velocity);
+
+            // Project velocity onto the obstacle normal
+            const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
+
+            // Subtract the projection (tangential part)
+            const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
+
+            // Update position using tangential velocity
+            kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
+        } else {
+            // No obstacle, proceed with full velocity
+            kart.position.addScaledVector(direction, velocity * delta / 0.008);
+        }
         kart.position.y += verticalVelocity * delta / .008;
-        console.log(kart.position);
-        console.log('direction: ',direction);
+        // console.log(kart.position);
+        // console.log('direction: ', direction);
 
         // Check for game over
         if (kart.position.y < -1000) {
