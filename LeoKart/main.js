@@ -1,5 +1,5 @@
 let scene, camera, renderer;
-let kart;
+let kart, donut;
 const clock = new THREE.Clock();
 const keyboard = {};
 let track;
@@ -17,11 +17,14 @@ const maxSpeed = 3.5; // Maximum speed
 const friction = 0.005; // Friction when no input is given
 const turnSpeed = 0.03; // Steering sensitivity
 let direction = new THREE.Vector3(0, 0, -1); // Forward direction
+let up = new THREE.Vector3(0, 1, 0);
+let right = new THREE.Vector3(1, 0, 0);
 let verticalVelocity = 0; // Kart's vertical speed
 const gravity = -3.0; // Gravity pulling the kart down
 let isOnGround = true; // Whether the kart is touching the track
 let oldPitch = 0;
 
+let donutAngularVelocity = 0.05; // Angular velocity in radians per frame
 let gameOver = false; // Track game state
 
 let audioContext = null;
@@ -201,13 +204,15 @@ function loadModels() {
         kart.position.set(0, 0, -350); // Set the kart's initial position
         // kart.rotation.y = Math.PI / 2;
         kart.rotateY(Math.PI / 2);
+        direction.set(-1, 0, 0);
+        right.set(0, 0, -1);
 
         scene.add(kart);
     });
 
     // Load Donut
     loader.load('assets/donut.gltf', (gltf) => {
-        const donut = gltf.scene;
+        donut = gltf.scene;
         donut.scale.set(200, 200, 200);
         donut.rotateZ(Math.PI / 2);
         donut.position.set(1000, 300, 3250); // Set the donut's initial position
@@ -216,6 +221,7 @@ function loadModels() {
         // Create a bounding box for the donut
         const box = new THREE.Box3().setFromObject(donut);
         obstacleBoxes.push(box);
+
     });
 }
 
@@ -228,7 +234,9 @@ function animate() {
     if (gameOver) return; // Stop animation if game is over
 
     const delta = clock.getDelta();
-
+    if (donut) {
+        donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
+    }
 
     if (kart) {
         // Update velocity for forward/backward movement
