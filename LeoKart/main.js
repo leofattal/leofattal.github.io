@@ -5,6 +5,11 @@ const keyboard = {};
 let track;
 const obstacleBoxes = []; // Store bounding boxes of obstacles
 
+let timerDiv; // To display the timer
+let startTime = null; // To track the start time
+let finishTime = null; // To track the finish time
+let finishDiv; // To display the finish time
+
 let isAccelerating = false;
 let startX = 0;
 let currentX = 0;
@@ -52,6 +57,9 @@ function loadKartSound() {
         });
 }
 
+let finishSound = new Audio('assets/finish-sound.mp3');
+finishSound.volume = 0.5; // Set volume level
+
 function setupAudio() {
     if (!audioContext || !audioBuffer || audioSource) return;
 
@@ -76,8 +84,36 @@ function setupAudio() {
 // Listen for the first key press to initialize the audio
 document.addEventListener('keydown', function initializeAudioContext() {
     setupAudio();
+    startTime = performance.now(); // Record the start time
     document.removeEventListener('keydown', initializeAudioContext); // Remove listener after first key press
 });
+
+// Create the timer div
+function createTimerDisplay() {
+    timerDiv = document.createElement('div');
+    timerDiv.style.position = 'absolute';
+    timerDiv.style.top = '10px';
+    timerDiv.style.right = '10px';
+    timerDiv.style.color = 'white';
+    timerDiv.style.fontStyle = 'italic';
+    timerDiv.style.fontSize = '2rem';
+    timerDiv.style.zIndex = '100';
+    timerDiv.innerHTML = 'Time: 0.00s';
+    document.body.appendChild(timerDiv);
+}
+
+function createFinishDisplay() {
+    finishDiv = document.createElement('div');
+    finishDiv.style.position = 'absolute';
+    finishDiv.style.top = '40px';
+    finishDiv.style.right = '10px';
+    finishDiv.style.color = 'red';
+    finishDiv.style.fontStyle = 'italic';
+    finishDiv.style.fontSize = '2rem';
+    finishDiv.style.zIndex = '100';
+    finishDiv.innerHTML = '  --  ';
+    document.body.appendChild(finishDiv);
+}
 
 function setupTouchControls() {
     // Detect when a finger touches the screen
@@ -159,6 +195,8 @@ function init() {
     loadModels();
     // Load the kart sound
     loadKartSound();
+    createTimerDisplay();
+    createFinishDisplay();
 
     // Handle resize
     window.addEventListener('resize', onWindowResize);
@@ -307,6 +345,28 @@ function getQuaternionFromVectors(u0, u1) {
 function animate() {
     if (gameOver) return; // Stop animation if game is over
 
+    // Update the timer
+    if (startTime !== null) {
+        const elapsedTime = (performance.now() - startTime) / 1000; // Convert to seconds
+        timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
+    }
+
+    // Check for finish condition
+    if (kart && startTime !== null) {
+        const kartX = kart.position.x;
+        const kartZ = kart.position.z;
+
+        if (kartX >= 600 && kartX <= 840 && kartZ < 530) {
+            finishTime = (performance.now() - startTime) / 1000; // Record finish time
+            if (finishTime > 20) {
+                finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
+                // Play the finish sound
+                finishSound.play();
+                startTime = performance.now(); // Reset the timer
+            }
+        }
+    }
+
     const delta = clock.getDelta();
     if (donut) {
         donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
@@ -322,7 +382,7 @@ function animate() {
         const playbackRate = baseRate + (velocity / maxSpeed) * (maxRate - baseRate);
         audioSource.playbackRate.value = playbackRate; // Set the playback rate
         gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1; // Scale volume with velocity
-        if (velocity === 0) {
+        if (velocity === 0 || (!isOnGround && !isLanding)) {
             gainNode.gain.value = 0; // Mute the sound
         }
     }
@@ -467,7 +527,7 @@ function animate() {
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
-        // console.log(kart.position);
+        console.log(kart.position);
         // console.log('direction: ', direction);
 
         // Check for game over
