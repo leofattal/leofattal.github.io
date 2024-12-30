@@ -67,16 +67,34 @@ canvas {
     opacity: 0.8;
 }
 
-#logout-button {
+#button-container {
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 5px; /* Add spacing between buttons */
     margin-left: 10px;
+}
+
+#toggle-track-button,
+#logout-button {
     padding: 5px 10px;
     font-size: 0.8rem;
     color: white;
-    background: #ff5555;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.3s ease;
+}
+
+#toggle-track-button {
+    background: #4CAF50; /* Green for Toggle Track */
+}
+
+#toggle-track-button:hover {
+    background: #45a049;
+}
+
+#logout-button {
+    background: #ff5555; /* Red for Logout */
 }
 
 #logout-button:hover {

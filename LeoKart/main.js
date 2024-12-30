@@ -2,8 +2,10 @@ let scene, camera, renderer;
 let kart, donut, coin;
 const clock = new THREE.Clock();
 const keyboard = {};
-let track;
+let track, trackUrl;
 const obstacleBoxes = [];
+let trackId = 0; // Initial track ID
+const numTracks = 2; // Total number of tracks
 
 let timerDiv, finishDiv;
 let startTime = null, finishTime = null;
@@ -148,6 +150,22 @@ function setupTouchControls() {
     document.addEventListener('touchend', () => isAccelerating = false);
 }
 
+// Function to toggle the track
+function toggleTrack() {
+    // Increment the track ID, cycling back to 0 when reaching numTracks
+    trackId = (trackId + 1) % numTracks;
+    console.log(`Switched to track ${trackId}`);
+
+    // Logic to reload or update the track
+    loadTrack(trackId); // Assuming you have a function to load tracks by ID
+    loadModels(); // Assuming you have a function to load models
+}
+
+// Attach the toggleTrack function to the button
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('toggle-track-button').addEventListener('click', toggleTrack);
+});
+
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
@@ -183,17 +201,32 @@ function init() {
 }
 
 function loadTrack() {
+    if (track) scene.remove(track);
     const loader = new THREE.GLTFLoader();
-    loader.load('assets/track/scene.gltf', gltf => {
+    if (trackId === 0) {
+        trackUrl = 'assets/track/scene.gltf';
+    } else {
+        trackUrl = 'assets/lowpoly_racetrack/scene.gltf';
+    }
+    loader.load(trackUrl, gltf => {
         track = gltf.scene;
-        track.scale.set(10, 10, 10);
-        track.position.set(0, -20, 0);
+        if (trackId === 0) {
+            track.scale.set(10, 10, 10);
+            track.position.set(0, -20, 0);
+        } else {
+            track.scale.set(15, 15, 15);
+            track.position.set(0, 0, 0);
+            track.rotateY(Math.PI / 2);
+        }
         scene.add(track);
         console.log('Track loaded successfully!');
     }, undefined, error => console.error('Error loading track:', error));
 }
 
 function loadModels() {
+    if (kart) scene.remove(kart);
+    if (coin) scene.remove(coin);
+    if (donut) scene.remove(donut);
     const loader = new THREE.GLTFLoader();
     loader.load('assets/kart/scene.gltf', gltf => {
         kart = gltf.scene;
@@ -201,7 +234,14 @@ function loadModels() {
         kart.add(camera);
         camera.position.set(0, 100, 200);
         camera.lookAt(0, 2, 0);
-        kart.position.set(720, 0, 700);
+        if (trackId === 0) {
+            kart.position.set(720, 0, 700);
+        } else {
+            kart.position.set(0, 0, 0);
+            kart.rotateY(-Math.PI / 2);
+            direction = new THREE.Vector3(1, 0, 0);
+            right = new THREE.Vector3(0, 0, -1);
+        }
         scene.add(kart);
     });
 
@@ -216,8 +256,11 @@ function loadModels() {
 
     loader.load('assets/coin.gltf', gltf => {
         coin = gltf.scene;
-        coin.scale.set(5, 5, 5);
-        coin.position.set(720, 10, 530);
+        coin.scale.set(10, 10, 10);
+        // Position the coin 200 units away from the kart in the "direction" vector
+        const offset = direction.clone().normalize().multiplyScalar(200); // Scale direction vector to 200 units
+        coin.position.copy(kart.position.clone().add(offset)); // Add offset to kart's position
+        coin.position.y = kart.position.y + 20; // Adjust the height if needed (10 units above kart's height)
         scene.add(coin);
         obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
@@ -304,7 +347,9 @@ function animate() {
             const roadNormal = intersects[0].face.normal.clone();
             intersects[0].object.updateMatrixWorld();
             roadNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersects[0].object.matrixWorld)).normalize();
-            roadNormal.negate();
+            if (roadNormal.dot(downDirection) > 0) {
+                roadNormal.negate();
+            }
 
             if (isOnGround || isLanding) {
                 const pitchQuaternion = getQuaternionFromVectors(up, roadNormal);
@@ -366,6 +411,7 @@ function animate() {
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
+        console.log(kart.position, direction);
 
         if (kart.position.y < -1000) {
             showGameOver();
