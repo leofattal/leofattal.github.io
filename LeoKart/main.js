@@ -3,497 +3,344 @@ let kart, donut, coin;
 const clock = new THREE.Clock();
 const keyboard = {};
 let track;
-const obstacleBoxes = []; // Store bounding boxes of obstacles
+const obstacleBoxes = [];
 
-let timerDiv; // To display the timer
-let startTime = null; // To track the start time
-let finishTime = null; // To track the finish time
-let finishDiv; // To display the finish time
+let timerDiv, finishDiv;
+let startTime = null, finishTime = null;
+let isAccelerating = false, startX = 0, currentX = 0;
+let velocity = 0, verticalVelocity = 0;
+const acceleration = 0.02, deceleration = 0.01, maxSpeed = 3.5, friction = 0.005, turnSpeed = 0.03, gravity = -2;
+let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
+let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false;
+let donutAngularVelocity = 0.05, gameOver = false;
+let audioContext = null, audioBuffer = null, audioSource = null, gainNode = null;
+let finishSound = new Audio('assets/finish-sound.mp3');
+finishSound.volume = 0.5;
 
-let isAccelerating = false;
-let startX = 0;
-let currentX = 0;
+window.onload = function () {
+    // Initialize Google Sign-In button
+    google.accounts.id.initialize({
+        client_id: '859341970629-8gsjvbl86s7kg2gasposjh00qtfnf5pj.apps.googleusercontent.com',
+        callback: onSignIn,
+        auto_select: true, // Automatically selects the account if possible
+    });
 
-// Physics variables
-let velocity = 0; // Forward velocity
-const acceleration = 0.02; // Acceleration rate
-const deceleration = 0.01; // Deceleration rate
-const maxSpeed = 3.5; // Maximum speed
-const friction = 0.005; // Friction when no input is given
-const turnSpeed = 0.03; // Steering sensitivity
-let direction = new THREE.Vector3(0, 0, -1); // Forward direction
-let up = new THREE.Vector3(0, 1, 0);
-let right = new THREE.Vector3(1, 0, 0);
-let verticalVelocity = 0; // Kart's vertical speed
-const gravity = -2; // Gravity pulling the kart down
-let isOnGround = true; // Whether the kart is touching the track
-let oldPitch = 0;
-let steer = 0;
-let obstacleNormal = null;
+    // Render the Google Sign-In button
+    google.accounts.id.renderButton(
+        document.getElementById('login-button'),
+        { theme: 'outline', size: 'small' }
+    );
 
-let donutAngularVelocity = 0.05; // Angular velocity in radians per frame
-let gameOver = false; // Track game state
+    // Check if the user has a saved session
+    const token = localStorage.getItem('googleCredential');
+    if (token) {
+        onSignIn({ credential: token });
+    } else {
+        google.accounts.id.prompt(); // Prompt user if not signed in
+    }
+};
 
-let audioContext = null;
-let audioBuffer = null;
-let audioSource = null;
-let gainNode = null;
+function onSignIn(response) {
+    // Decode the Google ID token
+    const user = jwt_decode(response.credential);
+
+    // Save the token to localStorage for persistent login
+    localStorage.setItem('googleCredential', response.credential);
+
+    // Update UI with user info
+    document.getElementById('login-button').style.display = 'none';
+    const userInfo = document.getElementById('user-info');
+    userInfo.style.display = 'flex';
+    document.getElementById('profile-pic').src = user.picture;
+    document.getElementById('user-name').textContent = user.given_name;
+
+    // Retrieve and display the best time
+    const bestTime = localStorage.getItem('bestTime') || '--';
+    document.getElementById('best-time').textContent = `Best Time: ${bestTime}`;
+}
+
+function signOut() {
+    // Clear the session and localStorage
+    localStorage.removeItem('googleCredential');
+    document.getElementById('login-button').style.display = 'block';
+    document.getElementById('user-info').style.display = 'none';
+
+    // Optionally trigger the Google sign-out
+    google.accounts.id.disableAutoSelect();
+}
+
+// Store the best finish time (Update this in your game logic)
+function saveBestTime(finishTime) {
+    const currentBestTime = localStorage.getItem('bestTime');
+    if (!currentBestTime || finishTime < parseFloat(currentBestTime)) {
+        localStorage.setItem('bestTime', finishTime.toFixed(2));
+        document.getElementById('best-time').textContent = `Best Time: ${finishTime.toFixed(2)}`;
+    }
+}
+
+const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
 
 function loadKartSound() {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
-
-    // Fetch and decode the MP3 file
     fetch('assets/kart-sound.mp3')
-        .then((response) => response.arrayBuffer())
-        .then((data) => audioContext.decodeAudioData(data))
-        .then((buffer) => {
+        .then(response => response.arrayBuffer())
+        .then(data => audioContext.decodeAudioData(data))
+        .then(buffer => {
             audioBuffer = buffer;
             console.log("Kart sound loaded successfully!");
         })
-        .catch((error) => {
-            console.error("Error loading kart sound:", error);
-        });
+        .catch(error => console.error("Error loading kart sound:", error));
 }
-
-let finishSound = new Audio('assets/finish-sound.mp3');
-finishSound.volume = 0.5; // Set volume level
 
 function setupAudio() {
     if (!audioContext || !audioBuffer || audioSource) return;
-
-    // Create a new audio source for playback
     audioSource = audioContext.createBufferSource();
     audioSource.buffer = audioBuffer;
-    audioSource.loop = true; // Loop the sound for continuous playback
-
-    // Create a gain node to control the volume
+    audioSource.loop = true;
     gainNode = audioContext.createGain();
-    gainNode.gain.value = 0.1; // Initial volume
-
-    // Connect audio source -> gain -> audio output
+    gainNode.gain.value = 0.1;
     audioSource.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
-    // Start playback
     audioSource.start();
     console.log("Kart sound started");
 }
 
-// Listen for the first key press to initialize the audio
 document.addEventListener('keydown', function initializeAudioContext() {
     setupAudio();
-    startTime = performance.now(); // Record the start time
-    document.removeEventListener('keydown', initializeAudioContext); // Remove listener after first key press
+    startTime = performance.now();
+    document.removeEventListener('keydown', initializeAudioContext);
 });
 
-// Create the timer div
-function createTimerDisplay() {
-    timerDiv = document.createElement('div');
-    timerDiv.style.position = 'absolute';
-    timerDiv.style.top = '10px';
-    timerDiv.style.right = '10px';
-    timerDiv.style.color = 'white';
-    timerDiv.style.fontStyle = 'italic';
-    timerDiv.style.fontSize = '2rem';
-    timerDiv.style.zIndex = '100';
-    timerDiv.innerHTML = 'Time: 0.00s';
-    document.body.appendChild(timerDiv);
-}
-
-function createFinishDisplay() {
-    finishDiv = document.createElement('div');
-    finishDiv.style.position = 'absolute';
-    finishDiv.style.top = '40px';
-    finishDiv.style.right = '10px';
-    finishDiv.style.color = 'red';
-    finishDiv.style.fontStyle = 'italic';
-    finishDiv.style.fontSize = '2rem';
-    finishDiv.style.zIndex = '100';
-    finishDiv.innerHTML = '  --  ';
-    document.body.appendChild(finishDiv);
+function createDisplay(element, styles, innerHTML) {
+    element = document.createElement('div');
+    Object.assign(element.style, styles);
+    element.innerHTML = innerHTML;
+    document.body.appendChild(element);
+    return element;
 }
 
 function setupTouchControls() {
-    // Detect when a finger touches the screen
-    document.addEventListener('touchstart', (e) => {
+    document.addEventListener('touchstart', e => {
         const touch = e.touches[0];
         startX = touch.clientX;
         currentX = touch.clientX;
-        isAccelerating = true; // Start accelerating
+        isAccelerating = true;
     });
 
-    // Detect finger movement (swipe)
-    document.addEventListener('touchmove', (e) => {
+    document.addEventListener('touchmove', e => {
         const touch = e.touches[0];
-        currentX = touch.clientX; // Update current X position
-
-        // Calculate swipe direction
+        currentX = touch.clientX;
         const deltaX = currentX - startX;
-
-        if (deltaX < -5) {
-            // Swipe left to steer left
-            if (velocity !== 0) {
-                const steer = turnSpeed * (velocity / maxSpeed);
-                // kart.rotation.y += steer; // Turn left
-                kart.rotateY(steer);
-            }
-        } else if (deltaX > 5) {
-            // Swipe right to steer right
-            if (velocity !== 0) {
-                const steer = turnSpeed * (velocity / maxSpeed);
-                // kart.rotation.y -= steer; // Turn right
-                kart.rotateY(-steer);
-            }
-        }
-
-        startX = currentX; // Reset startX for continuous swiping
+        if (deltaX < -5 && velocity !== 0) kart.rotateY(turnSpeed * (velocity / maxSpeed));
+        if (deltaX > 5 && velocity !== 0) kart.rotateY(-turnSpeed * (velocity / maxSpeed));
+        startX = currentX;
     });
 
-    // Detect when the finger is lifted
-    document.addEventListener('touchend', () => {
-        isAccelerating = false; // Stop accelerating
-    });
+    document.addEventListener('touchend', () => isAccelerating = false);
 }
 
-// Initialize the game
 function init() {
-    // Scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
-
-    // Add Skybox
     const skyboxLoader = new THREE.CubeTextureLoader();
-    const skyboxTexture = skyboxLoader.load([
-        'assets/skybox/right.jpg', // Right
-        'assets/skybox/left.jpg', // Left
-        'assets/skybox/top.jpg', // Top
-        'assets/skybox/bottom.jpg', // Bottom
-        'assets/skybox/front.jpg', // Front
-        'assets/skybox/back.jpg', // Back
+    scene.background = skyboxLoader.load([
+        'assets/skybox/right.jpg', 'assets/skybox/left.jpg', 'assets/skybox/top.jpg',
+        'assets/skybox/bottom.jpg', 'assets/skybox/front.jpg', 'assets/skybox/back.jpg'
     ]);
-    scene.background = skyboxTexture;
 
-    // Camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(0, 10, -20); // Default camera position
+    camera.position.set(0, 10, -20);
 
-    // Renderer
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
 
-    // Load models and track
     loadTrack();
     loadModels();
-    // Load the kart sound
     loadKartSound();
-    createTimerDisplay();
-    createFinishDisplay();
+    timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
+    finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, '  --  ');
 
-    // Handle resize
     window.addEventListener('resize', onWindowResize);
-
-    // Handle keyboard
-    document.addEventListener('keydown', (e) => keyboard[e.key] = true);
-    document.addEventListener('keyup', (e) => keyboard[e.key] = false);
-
-    // Set up touch controls
+    document.addEventListener('keydown', e => keyboard[e.key] = true);
+    document.addEventListener('keyup', e => keyboard[e.key] = false);
     setupTouchControls();
-
-    // Start the animation loop
     animate();
 }
 
 function loadTrack() {
     const loader = new THREE.GLTFLoader();
-
-    // Load the GLTF track
-    loader.load('assets/track/scene.gltf', (gltf) => {
-        track = gltf.scene; // Store the track for future reference
-        track.scale.set(10, 10, 10); // Adjust scale (change if needed)
-        track.position.set(0, -20, 0); // Center the track
+    loader.load('assets/track/scene.gltf', gltf => {
+        track = gltf.scene;
+        track.scale.set(10, 10, 10);
+        track.position.set(0, -20, 0);
         scene.add(track);
-
         console.log('Track loaded successfully!');
-    }, undefined, (error) => {
-        console.error('Error loading track:', error);
-    });
+    }, undefined, error => console.error('Error loading track:', error));
 }
 
 function loadModels() {
     const loader = new THREE.GLTFLoader();
-
-    // Load Kart
-    loader.load('assets/kart/scene.gltf', (gltf) => {
+    loader.load('assets/kart/scene.gltf', gltf => {
         kart = gltf.scene;
         kart.scale.set(0.5, 0.5, 0.5);
-
-        // Attach the camera to the kart
         kart.add(camera);
-        camera.position.set(0, 100, 200); // Position camera behind and above the kart
+        camera.position.set(0, 100, 200);
         camera.lookAt(0, 2, 0);
-
-        kart.position.set(720, 0, 700); // Set the kart's initial position
-        // kart.rotation.y = Math.PI / 2;
-        // kart.rotateY(Math.PI / 2);
-        // direction.set(-1, 0, 0);
-        // right.set(0, 0, -1);
-
+        kart.position.set(720, 0, 700);
         scene.add(kart);
     });
 
-    // Load Donut
-    loader.load('assets/donut.gltf', (gltf) => {
+    loader.load('assets/donut.gltf', gltf => {
         donut = gltf.scene;
         donut.scale.set(200, 200, 200);
         donut.rotateZ(Math.PI / 2);
-        donut.position.set(1000, 300, 3250); // Set the donut's initial position
+        donut.position.set(1000, 300, 3250);
         scene.add(donut);
-
-        // Create a bounding box for the donut
-        const box = new THREE.Box3().setFromObject(donut);
-        obstacleBoxes.push(box);
-
+        obstacleBoxes.push(new THREE.Box3().setFromObject(donut));
     });
 
-    // Load Coin
-    loader.load('assets/coin.gltf', (gltf) => {
+    loader.load('assets/coin.gltf', gltf => {
         coin = gltf.scene;
         coin.scale.set(5, 5, 5);
-        coin.position.set(720, 10, 530); // Set the donut's initial position
+        coin.position.set(720, 10, 530);
         scene.add(coin);
-
-        // Create a bounding box for the donut
-        const box = new THREE.Box3().setFromObject(coin);
-        obstacleBoxes.push(box);
-
+        obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
 }
 
-const raycaster = new THREE.Raycaster();
-const downDirection = new THREE.Vector3(0, -1, 0); // Ray direction (downward)
-const raycasterFront = new THREE.Raycaster();
-
-let isLanding = false; // Tracks whether the kart is landing
-
 function getSignedAngle(u, v, axis) {
-    // Ensure vectors are normalized
     u.normalize();
     v.normalize();
-
-    // Compute the dot product (cosine of the angle)
-    const dot = u.dot(v);
-
-    // Clamp dot to avoid precision errors
-    const clampedDot = Math.max(-1, Math.min(1, dot));
-
-    // Calculate the angle in radians
-    const angle = Math.acos(clampedDot);
-
-    // Compute the cross product to determine the direction
+    const dot = Math.max(-1, Math.min(1, u.dot(v)));
+    const angle = Math.acos(dot);
     const cross = new THREE.Vector3().crossVectors(u, v);
-
-    // Determine the sign of the angle using the axis
-    const sign = Math.sign(cross.dot(axis));
-
-    // Return the signed angle
-    return angle * sign;
+    return angle * Math.sign(cross.dot(axis));
 }
 
 function getQuaternionFromVectors(u0, u1) {
-    // Normalize the input vectors
     const v0 = u0.clone().normalize();
     const v1 = u1.clone().normalize();
-
-    // Compute the dot product to determine the angle
     const dot = v0.dot(v1);
-
-    // If the vectors are already aligned, return the identity quaternion
-    if (dot > 0.99999) {
-        return new THREE.Quaternion(); // Identity quaternion
-    }
-
-    // If the vectors are opposite, create a rotation 180° around a perpendicular axis
+    if (dot > 0.99999) return new THREE.Quaternion();
     if (dot < -0.99999) {
         const perpendicularAxis = new THREE.Vector3(1, 0, 0).cross(v0);
-        if (perpendicularAxis.length() < 0.00001) {
-            perpendicularAxis.set(0, 1, 0).cross(v0); // Try a different axis
-        }
+        if (perpendicularAxis.length() < 0.00001) perpendicularAxis.set(0, 1, 0).cross(v0);
         perpendicularAxis.normalize();
         return new THREE.Quaternion().setFromAxisAngle(perpendicularAxis, Math.PI);
     }
-
-    // Otherwise, compute the quaternion
-    const cross = new THREE.Vector3().crossVectors(v0, v1); // Cross product
-    const q = new THREE.Quaternion(
-        cross.x,
-        cross.y,
-        cross.z,
-        1 + dot // Scalar part
-    );
-    return q.normalize(); // Normalize the quaternion before returning
+    const cross = new THREE.Vector3().crossVectors(v0, v1);
+    const q = new THREE.Quaternion(cross.x, cross.y, cross.z, 1 + dot);
+    return q.normalize();
 }
 
 function animate() {
-    if (gameOver) return; // Stop animation if game is over
-
-    // Update the timer
+    if (gameOver) return;
     if (startTime !== null) {
-        const elapsedTime = (performance.now() - startTime) / 1000; // Convert to seconds
+        const elapsedTime = (performance.now() - startTime) / 1000;
         timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
     }
 
-    // Check for finish condition
     if (kart && startTime !== null) {
-        const kartX = kart.position.x;
-        const kartZ = kart.position.z;
-
+        const kartX = kart.position.x, kartZ = kart.position.z;
         if (kartX >= 600 && kartX <= 840 && kartZ < 530) {
-            finishTime = (performance.now() - startTime) / 1000; // Record finish time
+            finishTime = (performance.now() - startTime) / 1000;
             if (finishTime > 20) {
                 finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
-                // Play the finish sound
                 finishSound.play();
-                startTime = performance.now(); // Reset the timer
+                saveBestTime(finishTime);
+                startTime = performance.now();
             }
         }
     }
 
     const delta = clock.getDelta();
-    if (donut) {
-        donut.rotateX(donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
-    }
-    if (coin) {
-        coin.rotateY(2 * donutAngularVelocity * delta / 0.08); // Rotate around Y-axis
-    }
-    // Adjust engine sound pitch based on velocity
+    if (donut) donut.rotateX(donutAngularVelocity * delta / 0.08);
+    if (coin) coin.rotateY(2 * donutAngularVelocity * delta / 0.08);
+
     if (audioSource) {
-        // Adjust playback rate based on velocity
-        const baseRate = 0.5; // Minimum playback rate
-        const maxRate = 2.0; // Maximum playback rate
+        const baseRate = 0.5, maxRate = 2.0;
         const playbackRate = baseRate + (velocity / maxSpeed) * (maxRate - baseRate);
-        audioSource.playbackRate.value = playbackRate; // Set the playback rate
-        gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1; // Scale volume with velocity
-        if (velocity === 0 || (!isOnGround && !isLanding)) {
-            gainNode.gain.value = 0; // Mute the sound
-        }
+        audioSource.playbackRate.value = playbackRate;
+        gainNode.gain.value = 0.05 + (velocity / maxSpeed) * 0.1;
+        if (velocity === 0 || (!isOnGround && !isLanding)) gainNode.gain.value = 0;
     }
 
     if (kart) {
-        // Update velocity for forward/backward movement
         if ((keyboard['ArrowUp'] || isAccelerating) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
         if (keyboard['ArrowDown'] && isOnGround) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
-
-        // Apply friction
         if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating && isOnGround) {
             if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
             if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
         }
 
-        // Steering
         steer = 0;
-        if (keyboard['ArrowLeft'] && velocity !== 0 && isOnGround) {
-            steer = turnSpeed * (velocity / maxSpeed);
-            //kart.rotation.y += steer; // Turn left
-        }
-        if (keyboard['ArrowRight'] && velocity !== 0 && isOnGround) {
-            steer = -turnSpeed * (velocity / maxSpeed);
-            //kart.rotation.y -= steer; // Turn right
-        }
+        if (keyboard['ArrowLeft'] && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
+        if (keyboard['ArrowRight'] && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
 
-        // Update direction vector
-        //direction.set(0, 0, -1).applyQuaternion(kart.quaternion).normalize();
-
-        // Horizontal movement
-        //kart.position.addScaledVector(direction, velocity * delta / .008);
-        // console.log(kart.position);
-
-        // Raycast to find track height
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
         raycasterFront.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), direction);
-        const objectsToCheck = [track, donut]; // List of objects to detect collisions with
+        const objectsToCheck = [track, donut];
         const intersectsFront = raycasterFront.intersectObjects(objectsToCheck, true);
 
         if (intersects.length > 0) {
             const groundPoint = intersects[0].point;
             const groundHeight = groundPoint.y;
-
-            // Calculate slope (change in height)
-            const heightDifference = groundHeight - kart.position.y;
-
-            const roadNormal = intersects[0].face.normal.clone(); // (0,0,-1) for flat
+            const roadNormal = intersects[0].face.normal.clone();
             intersects[0].object.updateMatrixWorld();
             roadNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersects[0].object.matrixWorld)).normalize();
-            roadNormal.negate(); // Invert the normal
+            roadNormal.negate();
 
             if (isOnGround || isLanding) {
-                const pitchQuaternion = getQuaternionFromVectors(up, roadNormal)
-                // console.log('pitchQuaternion: ',pitchQuaternion);
-                kart.quaternion.premultiply(pitchQuaternion); // Apply the rotation to the kart
-
+                const pitchQuaternion = getQuaternionFromVectors(up, roadNormal);
+                kart.quaternion.premultiply(pitchQuaternion);
                 const forward = direction.clone().applyQuaternion(pitchQuaternion);
                 up = roadNormal.clone();
-
-                const yawQuaternion = new THREE.Quaternion();
-                yawQuaternion.setFromAxisAngle(up, steer); // Create a quaternion for the rotation
-                // console.log('yawQuaternion: ',yawQuaternion);
-                kart.quaternion.premultiply(yawQuaternion); // Apply the rotation to the kart
+                const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(up, steer);
+                kart.quaternion.premultiply(yawQuaternion);
                 direction = forward.applyAxisAngle(up, steer);
                 right = new THREE.Vector3().crossVectors(direction, up).normalize();
             }
 
-            if (!isOnGround) {
-                verticalVelocity += gravity * delta; // Gravity when airborne
-            }
+            if (!isOnGround) verticalVelocity += gravity * delta;
 
-            // Check if the kart is on the ground
             if (kart.position.y <= groundHeight + 0.5) {
                 if (!isOnGround) {
-                    // Landing: Add bounce effect
-                    verticalVelocity = Math.abs(verticalVelocity) * 0.5; // Bounce upward with reduced velocity
-                    isLanding = true; // Indicate the kart is landing
+                    verticalVelocity = Math.abs(verticalVelocity) * 0.5;
+                    isLanding = true;
                 }
-
-                kart.position.y = groundHeight; // Stick to the ground
+                kart.position.y = groundHeight;
                 isOnGround = true;
-
-                // Damping the bounce
                 if (isLanding) {
-                    verticalVelocity *= 0.8; // Reduce bounce velocity
+                    verticalVelocity *= 0.8;
                     if (Math.abs(verticalVelocity) < 0.01) {
-                        verticalVelocity = 0; // Stop bouncing
+                        verticalVelocity = 0;
                         isLanding = false;
                     }
                 }
             } else {
-                isOnGround = false; // Kart is in the air
+                isOnGround = false;
             }
         } else {
-            isOnGround = false; // Kart is in the air
+            isOnGround = false;
         }
 
         if (intersectsFront.length > 0) {
             const frontPoint = intersectsFront[0].point;
-
-            // Check the distance from the raycaster's origin to the frontPoint
             const distanceToFrontPoint = raycaster.ray.origin.distanceTo(frontPoint);
             if (distanceToFrontPoint < 10) {
-                // Get the obstacle's normal vector
                 obstacleNormal = intersectsFront[0].face.normal.clone();
                 intersectsFront[0].object.updateMatrixWorld();
                 obstacleNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersectsFront[0].object.matrixWorld)).normalize();
-                if (obstacleNormal.dot(direction) > 0) {
-                    obstacleNormal.negate(); // Invert the normal if necessary
-                }
+                if (obstacleNormal.dot(direction) > 0) obstacleNormal.negate();
             } else {
                 obstacleNormal = null;
             }
@@ -501,65 +348,34 @@ function animate() {
             obstacleNormal = null;
         }
 
-        // Apply gravity if the kart is in the air
-        if (!isOnGround) {
-            verticalVelocity += gravity * delta; // Accelerate downward
-        }
+        if (!isOnGround) verticalVelocity += gravity * delta;
 
-        // Update position
         if (obstacleNormal) {
-            console.log('obstacleNormal: ', obstacleNormal);
-            console.log(kart.position);
-            console.log('direction: ', direction);
-            // Calculate the current velocity vector
             const velocityVector = direction.clone().multiplyScalar(velocity);
-
-            // Project velocity onto the obstacle normal
             const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
-
-            // Subtract the projection (tangential part)
             const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
-
-            // Update position using tangential velocity
             kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
         } else {
-            // No obstacle, proceed with full velocity
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
-        console.log(kart.position);
-        // console.log('direction: ', direction);
 
-        // Check for game over
         if (kart.position.y < -1000) {
             showGameOver();
             return;
         }
     }
 
-    // Render the scene
     renderer.render(scene, camera);
-
     requestAnimationFrame(animate);
 }
 
 function showGameOver() {
     gameOver = true;
-
-    // Create and display the GAME OVER message
-    const gameOverDiv = document.createElement('div');
-    gameOverDiv.innerHTML = 'GAME OVER';
-    gameOverDiv.style.position = 'absolute';
-    gameOverDiv.style.top = '50%';
-    gameOverDiv.style.left = '50%';
-    gameOverDiv.style.transform = 'translate(-50%, -50%)';
-    gameOverDiv.style.fontSize = '5rem';
-    gameOverDiv.style.color = 'red';
-    gameOverDiv.style.fontWeight = 'bold';
-    gameOverDiv.style.zIndex = '100';
-    document.body.appendChild(gameOverDiv);
-
-    // Restart the game after 3 seconds
+    const gameOverDiv = createDisplay(null, {
+        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        fontSize: '5rem', color: 'red', fontWeight: 'bold', zIndex: '100'
+    }, 'GAME OVER');
     setTimeout(() => {
         document.body.removeChild(gameOverDiv);
         restartGame();
@@ -567,7 +383,7 @@ function showGameOver() {
 }
 
 function restartGame() {
-    location.reload(); // Reload the page to reset the game
+    location.reload();
 }
 
 function onWindowResize() {
@@ -576,5 +392,4 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Initialize the game
 init();

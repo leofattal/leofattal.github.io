@@ -8,11 +8,23 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
 </head>
 
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="login-container">
+        <div id="login-button"></div>
+        <div id="user-info">
+            <img id="profile-pic" alt="Profile Picture">
+            <div id="user-details">
+                <p id="user-name"></p>
+                <p id="best-time"></p>
+            </div>
+        </div>
     </div>
     <script src="main.js"></script>
 </body>
