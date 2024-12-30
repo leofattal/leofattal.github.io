@@ -66,3 +66,19 @@ canvas {
     margin: 2px 0 0 0;
     opacity: 0.8;
 }
+
+#logout-button {
+    margin-left: 10px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    color: white;
+    background: #ff5555;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#logout-button:hover {
+    background: #ff0000;
+}

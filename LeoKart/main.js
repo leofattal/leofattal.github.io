@@ -62,12 +62,19 @@ function onSignIn(response) {
 function signOut() {
     // Clear the session and localStorage
     localStorage.removeItem('googleCredential');
+
+    // Reset the UI
     document.getElementById('login-button').style.display = 'block';
     document.getElementById('user-info').style.display = 'none';
 
-    // Optionally trigger the Google sign-out
+    // Optionally disable auto-select for future sessions
     google.accounts.id.disableAutoSelect();
 }
+
+// Attach the logout function to the button
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('logout-button').addEventListener('click', signOut);
+});
 
 // Store the best finish time (Update this in your game logic)
 function saveBestTime(finishTime) {
