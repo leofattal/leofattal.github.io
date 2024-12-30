@@ -43,7 +43,6 @@ window.onload = function () {
 };
 
 function onSignIn(response) {
-    // Decode the Google ID token
     const user = jwt_decode(response.credential);
 
     // Save the token to localStorage for persistent login
@@ -56,9 +55,8 @@ function onSignIn(response) {
     document.getElementById('profile-pic').src = user.picture;
     document.getElementById('user-name').textContent = user.given_name;
 
-    // Retrieve and display the best time
-    const bestTime = localStorage.getItem('bestTime') || '--';
-    document.getElementById('best-time').textContent = `Best Time: ${bestTime}`;
+    // Retrieve and display the best time for the current track
+    updateBestTimeUI(trackId); // Pass the current trackId
 }
 
 function signOut() {
@@ -78,13 +76,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logout-button').addEventListener('click', signOut);
 });
 
-// Store the best finish time (Update this in your game logic)
-function saveBestTime(finishTime) {
-    const currentBestTime = localStorage.getItem('bestTime');
-    if (!currentBestTime || finishTime < parseFloat(currentBestTime)) {
-        localStorage.setItem('bestTime', finishTime.toFixed(2));
-        document.getElementById('best-time').textContent = `Best Time: ${finishTime.toFixed(2)}`;
+// Function to get the best time for the current track
+function getBestTime(trackId) {
+    const bestTimes = JSON.parse(localStorage.getItem('bestTimes')) || {}; // Retrieve all best times
+    return bestTimes[trackId] || '--'; // Return best time for current track or '--' if not set
+}
+
+// Function to save the best time for the current track
+function saveBestTime() {
+    const bestTimes = JSON.parse(localStorage.getItem('bestTimes')) || {};
+    const currentBest = bestTimes[trackId];
+
+    // Update the best time if it's better or not set
+    if (!currentBest || finishTime < parseFloat(currentBest)) {
+        bestTimes[trackId] = finishTime.toFixed(2);
+        localStorage.setItem('bestTimes', JSON.stringify(bestTimes));
+        document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
     }
+}
+
+// Update the UI with the best time for the current track
+function updateBestTimeUI(trackId) {
+    const bestTime = getBestTime(trackId);
+    document.getElementById('best-time').textContent = `Best: ${bestTime}`;
 }
 
 const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
@@ -157,8 +171,11 @@ function toggleTrack() {
     console.log(`Switched to track ${trackId}`);
 
     // Logic to reload or update the track
-    loadTrack(trackId); // Assuming you have a function to load tracks by ID
-    loadModels(); // Assuming you have a function to load models
+    loadTrack();
+    loadModels();
+
+    // Update the best time display for the new track
+    updateBestTimeUI(trackId);
 }
 
 // Attach the toggleTrack function to the button
@@ -300,12 +317,12 @@ function animate() {
 
     if (kart && startTime !== null) {
         const kartX = kart.position.x, kartZ = kart.position.z;
-        if (kartX >= 600 && kartX <= 840 && kartZ < 530) {
+        if ((kartX >= 600 && kartX <= 840 && kartZ < 530 && trackId === 0) || (kartZ >= -100 && kartZ <= 100 && kartX >= 0 && trackId === 1)) {
             finishTime = (performance.now() - startTime) / 1000;
             if (finishTime > 20) {
                 finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
                 finishSound.play();
-                saveBestTime(finishTime);
+                saveBestTime();
                 startTime = performance.now();
             }
         }
