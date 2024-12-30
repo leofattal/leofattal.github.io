@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Function to get the best time for the current track
 function getBestTime(trackId) {
     const bestTimes = JSON.parse(localStorage.getItem('bestTimes')) || {}; // Retrieve all best times
-    return bestTimes[trackId] || '--'; // Return best time for current track or '--' if not set
+    return bestTimes[trackId] || '-'; // Return best time for current track or '--' if not set
 }
 
 // Function to save the best time for the current track
