@@ -14,3 +14,55 @@ body {
 canvas {
     display: block;
 }
+
+#login-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    color: white;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+#user-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: none; /* Hidden by default */
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    font-family: Arial, sans-serif;
+    color: white;
+}
+
+#profile-pic {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+    border: 2px solid white;
+}
+
+#user-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#user-name {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+#best-time {
+    font-size: 0.9rem;
+    margin: 2px 0 0 0;
+    opacity: 0.8;
+}
