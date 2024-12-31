@@ -13,7 +13,7 @@ let isAccelerating = false, startX = 0, currentX = 0;
 let velocity = 0, verticalVelocity = 0;
 const acceleration = 0.02, deceleration = 0.01, maxSpeed = 3.5, friction = 0.005, turnSpeed = 0.03, gravity = -2;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
-let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false;
+let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
 let donutAngularVelocity = 0.05, gameOver = false;
 let audioContext = null, audioBuffer = null, audioSource = null, gainNode = null;
 let finishSound = new Audio('assets/finish-sound.mp3');
@@ -170,11 +170,27 @@ function toggleTrack() {
     trackId = (trackId + 1) % numTracks;
     console.log(`Switched to track ${trackId}`);
 
+    // Save the new trackId in localStorage
+    localStorage.setItem('lastTrackId', trackId);
+
     // Logic to reload or update the track
     loadTrack();
     loadModels();
 
     // Update the best time display for the new track
+    updateBestTimeUI(trackId);
+}
+
+function initializeTrack() {
+    // Retrieve the last trackId from localStorage, default to 0 if not found
+    trackId = parseInt(localStorage.getItem('lastTrackId')) || 0;
+
+    console.log(`Starting with track ${trackId}`);
+
+    // Load the saved track
+    loadTrack();
+
+    // Update the best time display for the starting track
     updateBestTimeUI(trackId);
 }
 
@@ -204,7 +220,8 @@ function init() {
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
 
-    loadTrack();
+    // Initialize the track
+    initializeTrack();
     loadModels();
     loadKartSound();
     timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
@@ -218,26 +235,40 @@ function init() {
 }
 
 function loadTrack() {
-    if (track) scene.remove(track);
-    const loader = new THREE.GLTFLoader();
-    if (trackId === 0) {
-        trackUrl = 'assets/track/scene.gltf';
-    } else {
-        trackUrl = 'assets/lowpoly_racetrack/scene.gltf';
-    }
-    loader.load(trackUrl, gltf => {
-        track = gltf.scene;
-        if (trackId === 0) {
-            track.scale.set(10, 10, 10);
-            track.position.set(0, -20, 0);
-        } else {
-            track.scale.set(15, 15, 15);
-            track.position.set(0, 0, 0);
-            track.rotateY(Math.PI / 2);
-        }
-        scene.add(track);
-        console.log('Track loaded successfully!');
-    }, undefined, error => console.error('Error loading track:', error));
+    if (track) scene.remove(track); // Remove the existing track if it exists
+
+    // Load the configuration for the given track ID
+    const configPath = `trackConfigs/track_${trackId}.json`;
+
+    fetch(configPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to load track config: ${configPath}`);
+            }
+            return response.json();
+        })
+        .then(config => {
+            const loader = new THREE.GLTFLoader();
+            
+            loader.load(config.path, gltf => {
+                track = gltf.scene;
+
+                // Apply configurations from JSON
+                if (config.scale) {
+                    track.scale.set(...config.scale);
+                }
+                if (config.position) {
+                    track.position.set(...config.position);
+                }
+                if (config.rotation) {
+                    track.rotation.set(...config.rotation.map(deg => THREE.MathUtils.degToRad(deg))); // Convert degrees to radians
+                }
+
+                scene.add(track);
+                console.log(`Track ${trackId} loaded successfully!`);
+            }, undefined, error => console.error('Error loading track asset:', error));
+        })
+        .catch(error => console.error('Error loading track configuration:', error));
 }
 
 function loadModels() {
@@ -251,14 +282,7 @@ function loadModels() {
         kart.add(camera);
         camera.position.set(0, 100, 200);
         camera.lookAt(0, 2, 0);
-        if (trackId === 0) {
-            kart.position.set(720, 0, 700);
-        } else {
-            kart.position.set(0, 0, 0);
-            kart.rotateY(-Math.PI / 2);
-            direction = new THREE.Vector3(1, 0, 0);
-            right = new THREE.Vector3(0, 0, -1);
-        }
+        kart.position.set(0, 0, 0);
         scene.add(kart);
     });
 
@@ -314,20 +338,7 @@ function animate() {
         const elapsedTime = (performance.now() - startTime) / 1000;
         timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
     }
-
-    if (kart && startTime !== null) {
-        const kartX = kart.position.x, kartZ = kart.position.z;
-        if ((kartX >= 600 && kartX <= 840 && kartZ < 530 && trackId === 0) || (kartZ >= -100 && kartZ <= 100 && kartX >= 0 && trackId === 1)) {
-            finishTime = (performance.now() - startTime) / 1000;
-            if (finishTime > 20) {
-                finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
-                finishSound.play();
-                saveBestTime();
-                startTime = performance.now();
-            }
-        }
-    }
-
+    
     const delta = clock.getDelta();
     if (donut) donut.rotateX(donutAngularVelocity * delta / 0.08);
     if (coin) coin.rotateY(2 * donutAngularVelocity * delta / 0.08);
@@ -341,6 +352,7 @@ function animate() {
     }
 
     if (kart) {
+        oldZ = kart.position.z;
         if ((keyboard['ArrowUp'] || isAccelerating) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
         if (keyboard['ArrowDown'] && isOnGround) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
         if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating && isOnGround) {
@@ -429,6 +441,19 @@ function animate() {
         }
         kart.position.y += verticalVelocity * delta / .008;
         console.log(kart.position, direction);
+
+        if (kart && startTime !== null) {
+            const kartX = kart.position.x, kartZ = kart.position.z;
+            if (kartX >= -100 && kartX <= 100 && kartZ <= 0 && oldZ > 0) { // always same finish condition now
+                finishTime = (performance.now() - startTime) / 1000;
+                if (finishTime > 20) {
+                    finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
+                    finishSound.play();
+                    saveBestTime();
+                    startTime = performance.now();
+                }
+            }
+        }
 
         if (kart.position.y < -1000) {
             showGameOver();
