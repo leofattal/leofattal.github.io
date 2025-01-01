@@ -42,6 +42,15 @@ window.onload = function () {
     }
 };
 
+const profilePic = document.getElementById('profile-pic');
+profilePic.onload = function () {
+    console.log('Profile picture loaded successfully');
+};
+profilePic.onerror = function () {
+    console.error('Failed to load profile picture');
+    profilePic.src = 'path/to/fallback-image.png'; // Provide a fallback image
+};
+
 function onSignIn(response) {
     const user = jwt_decode(response.credential);
 
@@ -52,7 +61,7 @@ function onSignIn(response) {
     document.getElementById('login-button').style.display = 'none';
     const userInfo = document.getElementById('user-info');
     userInfo.style.display = 'flex';
-    document.getElementById('profile-pic').src = user.picture;
+    profilePic.src = user.picture;
     document.getElementById('user-name').textContent = user.given_name;
 
     // Retrieve and display the best time for the current track
@@ -440,7 +449,7 @@ function animate() {
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
-        console.log(kart.position, direction);
+        // console.log(kart.position, direction);
 
         if (kart && startTime !== null) {
             const kartX = kart.position.x, kartZ = kart.position.z;
