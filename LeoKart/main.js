@@ -55,17 +55,25 @@ profilePic.onerror = function () {
 };
 
 async function onSignIn(response) {
-    const user = jwt_decode(response.credential);
-
     // Save the token locally for persistent login
     localStorage.setItem('googleCredential', response.credential);
 
     try {
+        // Fetch fresh profile information using the Google API
+        const profileResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${response.credential}`);
+        if (!profileResponse.ok) {
+            throw new Error('Failed to fetch user profile');
+        }
+        const profileData = await profileResponse.json();
+
+        // Extract necessary profile details
+        const { sub: googleId, email, given_name: name, picture } = profileData;
+
         // Step 1: Check if the user already exists in the database
         const { data: existingUser, error: fetchError } = await supabase
             .from('users')
             .select('*')
-            .eq('google_id', user.sub)
+            .eq('google_id', googleId)
             .single(); // Expect at most one result
 
         if (fetchError && fetchError.code !== 'PGRST116') { // Ignore "no rows found" error
@@ -83,9 +91,9 @@ async function onSignIn(response) {
             const { data: newUser, error: insertError } = await supabase
                 .from('users')
                 .insert({
-                    google_id: user.sub,
-                    email: user.email,
-                    name: user.given_name,
+                    google_id: googleId,
+                    email,
+                    name,
                 })
                 .select() // Retrieve the inserted row
                 .single(); // Ensure we get the single row inserted
@@ -102,12 +110,12 @@ async function onSignIn(response) {
         // Step 4: Save the user ID in localStorage for future use
         localStorage.setItem('supabaseUserId', userId);
 
-        // Update UI with user info
+        // Update UI with fresh profile information
         document.getElementById('login-button').style.display = 'none';
         const userInfo = document.getElementById('user-info');
         userInfo.style.display = 'flex';
-        profilePic.src = user.picture;
-        document.getElementById('user-name').textContent = user.given_name;
+        document.getElementById('profile-pic').src = picture;
+        document.getElementById('user-name').textContent = name;
 
         console.log('User logged in successfully with ID:', userId);
     } catch (error) {
