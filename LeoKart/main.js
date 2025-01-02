@@ -1,3 +1,6 @@
+import { supabase } from './supabase.js';
+const leaderboardDiv = document.getElementById('leaderboard');
+
 let scene, camera, renderer;
 let kart, donut, coin;
 const clock = new THREE.Clock();
@@ -47,25 +50,69 @@ profilePic.onload = function () {
     console.log('Profile picture loaded successfully');
 };
 profilePic.onerror = function () {
-    console.error('Failed to load profile picture');
-    profilePic.src = 'path/to/fallback-image.png'; // Provide a fallback image
+    // console.error('Failed to load profile picture');
+    profilePic.src = 'assets/generic-avatar.jpg'; // Provide a fallback image
 };
 
-function onSignIn(response) {
+async function onSignIn(response) {
     const user = jwt_decode(response.credential);
 
-    // Save the token to localStorage for persistent login
+    // Save the token locally for persistent login
     localStorage.setItem('googleCredential', response.credential);
 
-    // Update UI with user info
-    document.getElementById('login-button').style.display = 'none';
-    const userInfo = document.getElementById('user-info');
-    userInfo.style.display = 'flex';
-    profilePic.src = user.picture;
-    document.getElementById('user-name').textContent = user.given_name;
+    try {
+        // Step 1: Check if the user already exists in the database
+        const { data: existingUser, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('google_id', user.sub)
+            .single(); // Expect at most one result
 
-    // Retrieve and display the best time for the current track
-    updateBestTimeUI(trackId); // Pass the current trackId
+        if (fetchError && fetchError.code !== 'PGRST116') { // Ignore "no rows found" error
+            console.error('Error fetching user:', fetchError);
+            return;
+        }
+
+        let userId;
+        if (existingUser) {
+            // Step 2: User exists; use their data
+            console.log('User already exists:', existingUser);
+            userId = existingUser.id;
+        } else {
+            // Step 3: User does not exist; insert a new user
+            const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert({
+                    google_id: user.sub,
+                    email: user.email,
+                    name: user.given_name,
+                })
+                .select() // Retrieve the inserted row
+                .single(); // Ensure we get the single row inserted
+
+            if (insertError) {
+                console.error('Error inserting new user:', insertError);
+                return;
+            }
+
+            console.log('Inserted new user:', newUser);
+            userId = newUser.id;
+        }
+
+        // Step 4: Save the user ID in localStorage for future use
+        localStorage.setItem('supabaseUserId', userId);
+
+        // Update UI with user info
+        document.getElementById('login-button').style.display = 'none';
+        const userInfo = document.getElementById('user-info');
+        userInfo.style.display = 'flex';
+        profilePic.src = user.picture;
+        document.getElementById('user-name').textContent = user.given_name;
+
+        console.log('User logged in successfully with ID:', userId);
+    } catch (error) {
+        console.error('Unexpected error during login:', error);
+    }
 }
 
 function signOut() {
@@ -92,17 +139,79 @@ function getBestTime(trackId) {
 }
 
 // Function to save the best time for the current track
-function saveBestTime() {
-    const bestTimes = JSON.parse(localStorage.getItem('bestTimes')) || {};
-    const currentBest = bestTimes[trackId];
+async function saveBestTime() {
+    const userId = localStorage.getItem('supabaseUserId');
+    if (!userId) return;
 
-    // Update the best time if it's better or not set
-    if (!currentBest || finishTime < parseFloat(currentBest)) {
-        bestTimes[trackId] = finishTime.toFixed(2);
-        localStorage.setItem('bestTimes', JSON.stringify(bestTimes));
-        document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
+    const { data, error } = await supabase
+        .from('track_times')
+        .upsert(
+            {
+                user_id: userId,
+                track_id: trackId,
+                best_time: finishTime,
+            },
+            { onConflict: ['user_id', 'track_id'] }
+        );
+
+    if (error) console.error('Error saving best time:', error);
+    else document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
+}
+
+async function fetchLeaderboard(trackId) {
+    try {
+        // Fetch leaderboard data from Supabase
+        const { data, error } = await supabase
+            .from('track_times')
+            .select('best_time, user_id, users(name)')
+            .eq('track_id', trackId)
+            .order('best_time', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching leaderboard:', error);
+            return;
+        }
+
+        // Clear the leaderboard div content
+        leaderboardDiv.innerHTML = '';
+
+        // Add a styled title
+        const title = document.createElement('h3');
+        title.textContent = 'Leaderboard';
+        leaderboardDiv.appendChild(title);
+
+        // If no data, display a message
+        if (data.length === 0) {
+            const noDataMessage = document.createElement('p');
+            noDataMessage.textContent = 'No entries yet!';
+            noDataMessage.style.color = '#ccc';
+            leaderboardDiv.appendChild(noDataMessage);
+            return;
+        }
+
+        // Create a list for leaderboard entries
+        const list = document.createElement('ol');
+        list.classList.add('leaderboard-list');
+
+        data.forEach((entry, index) => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span class="rank">${index + 1}</span>
+                <span class="name">${entry.users.name}</span>
+                <span class="time">${entry.best_time.toFixed(2)}s</span>
+            `;
+            list.appendChild(listItem);
+        });
+
+        leaderboardDiv.appendChild(list);
+
+    } catch (err) {
+        console.error('Unexpected error while fetching leaderboard:', err);
     }
 }
+
+
+
 
 // Update the UI with the best time for the current track
 function updateBestTimeUI(trackId) {
@@ -142,6 +251,7 @@ function setupAudio() {
 document.addEventListener('keydown', function initializeAudioContext() {
     setupAudio();
     startTime = performance.now();
+    leaderboardDiv.style.display = 'none';
     document.removeEventListener('keydown', initializeAudioContext);
 });
 
@@ -244,6 +354,8 @@ function init() {
 }
 
 function loadTrack() {
+    leaderboardDiv.style.display = 'block';
+    fetchLeaderboard(trackId);
     if (track) scene.remove(track); // Remove the existing track if it exists
 
     // Load the configuration for the given track ID
@@ -299,7 +411,7 @@ function loadModels() {
         donut = gltf.scene;
         donut.scale.set(200, 200, 200);
         donut.rotateZ(Math.PI / 2);
-        donut.position.set(280, 300, 2550);
+        donut.position.set(280, 300, 2700);
         scene.add(donut);
         obstacleBoxes.push(new THREE.Box3().setFromObject(donut));
     });
@@ -449,7 +561,7 @@ function animate() {
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
-        // console.log(kart.position, direction);
+        console.log(kart.position, direction);
 
         if (kart && startTime !== null) {
             const kartX = kart.position.x, kartZ = kart.position.z;

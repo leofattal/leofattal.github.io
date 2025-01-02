@@ -21,7 +21,8 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 0; /* Ensure it stays behind other UI elements */
+    z-index: 0;
+    /* Ensure it stays behind other UI elements */
 }
 
 #login-container {
@@ -40,7 +41,8 @@ canvas {
     top: 10px;
     left: 10px;
     z-index: 1000;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
     align-items: center;
     background: rgba(0, 0, 0, 0.6);
     padding: 10px;
@@ -78,8 +80,10 @@ canvas {
 
 #button-container {
     display: flex;
-    flex-direction: column; /* Stack buttons vertically */
-    gap: 5px; /* Add spacing between buttons */
+    flex-direction: column;
+    /* Stack buttons vertically */
+    gap: 5px;
+    /* Add spacing between buttons */
     margin-left: 10px;
 }
 
@@ -95,7 +99,8 @@ canvas {
 }
 
 #toggle-track-button {
-    background: #4CAF50; /* Green for Toggle Track */
+    background: #4CAF50;
+    /* Green for Toggle Track */
 }
 
 #toggle-track-button:hover {
@@ -103,9 +108,67 @@ canvas {
 }
 
 #logout-button {
-    background: #ff5555; /* Red for Logout */
+    background: #ff5555;
+    /* Red for Logout */
 }
 
 #logout-button:hover {
     background: #ff0000;
+}
+
+#leaderboard {
+    position: absolute;
+    top: 115px;
+    left: 20px;
+    width: auto;
+    max-width: 300px;
+    background: rgba(0, 0, 0, 0.6); /* Slightly darker background */
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+#leaderboard h3 {
+    font-size: 1.5rem;
+    margin: 0 0 10px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 5px;
+}
+
+.leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 1rem;
+}
+
+.leaderboard-list li:last-child {
+    border-bottom: none; /* Remove border for the last item */
+}
+
+.rank {
+    font-weight: bold;
+    color: #FFD700; /* Gold color for ranks */
+    margin-right: 10px;
+}
+
+.name {
+    flex: 1;
+    text-align: left;
+}
+
+.time {
+    color: #90EE90; /* Light green for time */
+    font-family: 'Courier New', monospace;
 }
