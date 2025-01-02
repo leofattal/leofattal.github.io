@@ -133,29 +133,72 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Function to get the best time for the current track
-function getBestTime(trackId) {
-    const bestTimes = JSON.parse(localStorage.getItem('bestTimes')) || {}; // Retrieve all best times
-    return bestTimes[trackId] || '-'; // Return best time for current track or '--' if not set
+async function getBestTime(trackId) {
+    const userId = localStorage.getItem('supabaseUserId');
+    if (!userId) {
+        console.error('User ID not found in localStorage');
+        return '--'; // Return default if user ID is not available
+    }
+
+    try {
+        // Query the database for the best time of the current user for the given track
+        const { data, error } = await supabase
+            .from('track_times')
+            .select('best_time')
+            .eq('user_id', userId)
+            .eq('track_id', trackId)
+            .single(); // Expect a single row
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                // No best time found
+                return '--';
+            }
+            console.error('Error fetching best time from database:', error);
+            return '--';
+        }
+
+        // Return the best time if found
+        return data.best_time.toFixed(2);
+    } catch (err) {
+        console.error('Unexpected error fetching best time:', err);
+        return '--';
+    }
 }
 
 // Function to save the best time for the current track
 async function saveBestTime() {
     const userId = localStorage.getItem('supabaseUserId');
-    if (!userId) return;
+    if (!userId) {
+        console.error('User ID not found in localStorage');
+        return;
+    }
 
-    const { data, error } = await supabase
-        .from('track_times')
-        .upsert(
-            {
-                user_id: userId,
-                track_id: trackId,
-                best_time: finishTime,
-            },
-            { onConflict: ['user_id', 'track_id'] }
-        );
+    try {
+        // Save the best time in the database
+        const { data, error } = await supabase
+            .from('track_times')
+            .upsert(
+                {
+                    user_id: userId,
+                    track_id: trackId,
+                    best_time: finishTime,
+                },
+                { onConflict: ['user_id', 'track_id'] }
+            );
 
-    if (error) console.error('Error saving best time:', error);
-    else document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
+        if (error) {
+            console.error('Error saving best time to database:', error);
+            return;
+        }
+
+        console.log('Best time saved successfully:', data);
+
+        // Update the UI with the new best time
+        document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
+    } catch (err) {
+        console.error('Unexpected error saving best time:', err);
+    }
 }
 
 async function fetchLeaderboard(trackId) {
@@ -214,8 +257,8 @@ async function fetchLeaderboard(trackId) {
 
 
 // Update the UI with the best time for the current track
-function updateBestTimeUI(trackId) {
-    const bestTime = getBestTime(trackId);
+async function updateBestTimeUI(trackId) {
+    const bestTime = await getBestTime(trackId);
     document.getElementById('best-time').textContent = `Best: ${bestTime}`;
 }
 
