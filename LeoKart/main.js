@@ -295,6 +295,7 @@ document.addEventListener('keydown', function initializeAudioContext() {
     setupAudio();
     startTime = performance.now();
     leaderboardDiv.style.display = 'none';
+    document.getElementById('game-logo').style.display = 'none';
     document.removeEventListener('keydown', initializeAudioContext);
 });
 
