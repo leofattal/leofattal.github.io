@@ -299,7 +299,7 @@ function loadModels() {
         donut = gltf.scene;
         donut.scale.set(200, 200, 200);
         donut.rotateZ(Math.PI / 2);
-        donut.position.set(1000, 300, 3250);
+        donut.position.set(280, 300, 2550);
         scene.add(donut);
         obstacleBoxes.push(new THREE.Box3().setFromObject(donut));
     });
