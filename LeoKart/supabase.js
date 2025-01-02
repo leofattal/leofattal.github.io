@@ -10,9 +10,9 @@ async function testConnection() {
         const { data, error } = await supabase.from('track_times').select('*');
 
         if (error) {
-            console.error('Error fetching users:', error);
+            console.error('Error getting track times:', error);
         } else {
-            console.log('Fetched users:', data);
+            console.log('Track Times:', data);
         }
     } catch (err) {
         console.error('Unexpected error:', err);

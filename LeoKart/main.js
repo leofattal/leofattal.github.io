@@ -605,7 +605,7 @@ function animate() {
             kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
         kart.position.y += verticalVelocity * delta / .008;
-        console.log(kart.position, direction);
+        // console.log(kart.position, direction);
 
         if (kart && startTime !== null) {
             const kartX = kart.position.x, kartZ = kart.position.z;
