@@ -14,3 +14,98 @@ body {
 canvas {
     display: block;
 }
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* Ensure it stays behind other UI elements */
+}
+
+#login-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    color: white;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+#user-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: none; /* Hidden by default */
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    font-family: Arial, sans-serif;
+    color: white;
+}
+
+#profile-pic {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+    border: 2px solid white;
+}
+
+#user-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#user-name {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+#best-time {
+    font-size: 0.9rem;
+    margin: 2px 0 0 0;
+    opacity: 0.8;
+}
+
+#button-container {
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 5px; /* Add spacing between buttons */
+    margin-left: 10px;
+}
+
+#toggle-track-button,
+#logout-button {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#toggle-track-button {
+    background: #4CAF50; /* Green for Toggle Track */
+}
+
+#toggle-track-button:hover {
+    background: #45a049;
+}
+
+#logout-button {
+    background: #ff5555; /* Red for Logout */
+}
+
+#logout-button:hover {
+    background: #ff0000;
+}
