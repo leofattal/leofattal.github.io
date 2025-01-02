@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three.js GLTF Example</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #f0f0f0;
+    }
+
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #000;
+      font-family: sans-serif;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 4px;
+      z-index: 999;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="info">
+    <h3>Three.js GLTF Example</h3>
+    <p>Loading a 3D model and rotating it.</p>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <script>
+    // === 1. Scene, Camera, Renderer ===
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0f0);
+
+    const camera = new THREE.PerspectiveCamera(
+      60, // Field of view
+      window.innerWidth / window.innerHeight, // Aspect Ratio
+      0.1, // Near clipping
+      1000 // Far clipping
+    );
+    camera.position.set(0, 2, 5);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Handle window resize
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // === 2. Add Light Sources ===
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    // === 3. Load the glTF Model ===
+    let model; // We'll store the loaded model here
+
+    const loader = new THREE.GLTFLoader();
+    // Replace 'path/to/model.gltf' with the actual path or URL to your glTF file
+    loader.load(
+      'assets/naval_cannon/scene.gltf',
+      function (gltf) {
+        model = gltf.scene;
+        scene.add(model);
+
+        // Optional: scale the model if it's too big or too small
+        model.scale.set(1, 1, 1);
+        model.position.set(0, 0, 0);
+      },
+      undefined,
+      function (error) {
+        console.error('Error loading glTF model:', error);
+      }
+    );
+
+    
+
+    // === 4. Animation Loop ===
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // If the model is loaded, rotate it slowly
+      if (model) {
+        model.rotation.y += 0.01; // rotate around Y axis
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+
+</html>
