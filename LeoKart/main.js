@@ -23,6 +23,18 @@ let audioContext = null, audioBuffer = null, audioSource = null, gainNode = null
 let finishSound = new Audio('assets/finish-sound.mp3');
 finishSound.volume = 0.5;
 
+function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+    // Check for touch capability
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    // Match user agents for mobile or tablet devices
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone|webOS|Kindle|Silk/.test(userAgent);
+
+    return hasTouch;
+}
+
 window.onload = function () {
     // Initialize Google Sign-In button
     google.accounts.id.initialize({
@@ -367,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Joystick if mobile
 document.addEventListener("DOMContentLoaded", () => {
     // Detect if the browser is mobile
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    const isMobile = isMobileDevice();
     if (!isMobile) return;
 
     joystickContainer = document.getElementById("joystick-container");
