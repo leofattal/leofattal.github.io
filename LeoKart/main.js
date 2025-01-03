@@ -11,7 +11,7 @@ let trackId = 0; // Initial track ID
 const numTracks = 2; // Total number of tracks
 
 let timerDiv, finishDiv;
-let startTime = null, finishTime = null;
+let startTime = null, finishTime = null, bestTime = null;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
@@ -158,7 +158,7 @@ async function getBestTime(trackId) {
     const userId = localStorage.getItem('supabaseUserId');
     if (!userId) {
         console.error('User ID not found in localStorage');
-        return '--'; // Return default if user ID is not available
+        return null; // Return default if user ID is not available
     }
 
     try {
@@ -167,23 +167,23 @@ async function getBestTime(trackId) {
             .from('track_times')
             .select('best_time')
             .eq('user_id', userId)
-            .eq('track_id', trackId)
-            .single(); // Expect a single row
+            .eq('track_id', trackId);
+            // .single(); // Expect a single row
 
         if (error) {
             if (error.code === 'PGRST116') {
                 // No best time found
-                return '--';
+                return null;
             }
-            console.error('Error fetching best time from database:', error);
-            return '--';
+            // console.error('Error fetching best time from database:', error);
+            return null;
         }
 
         // Return the best time if found
-        return data.best_time.toFixed(2);
+        return data[0].best_time || null;
     } catch (err) {
         console.error('Unexpected error fetching best time:', err);
-        return '--';
+        return null;
     }
 }
 
@@ -197,26 +197,28 @@ async function saveBestTime() {
 
     try {
         // Save the best time in the database
-        const { data, error } = await supabase
-            .from('track_times')
-            .upsert(
-                {
-                    user_id: userId,
-                    track_id: trackId,
-                    best_time: finishTime,
-                },
-                { onConflict: ['user_id', 'track_id'] }
-            );
+        if (finishTime < bestTime || bestTime === null) {
+            const { data, error } = await supabase
+                .from('track_times')
+                .upsert(
+                    {
+                        user_id: userId,
+                        track_id: trackId,
+                        best_time: finishTime,
+                    },
+                    { onConflict: ['user_id', 'track_id'] }
+                );
 
-        if (error) {
-            console.error('Error saving best time to database:', error);
-            return;
+            if (error) {
+                console.error('Error saving best time to database:', error);
+                return;
+            }
+
+            console.log('Best time saved successfully:', data);
+
+            // Update the UI with the new best time
+            document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
         }
-
-        console.log('Best time saved successfully:', data);
-
-        // Update the UI with the new best time
-        document.getElementById('best-time').textContent = `Best: ${finishTime.toFixed(2)}`;
     } catch (err) {
         console.error('Unexpected error saving best time:', err);
     }
@@ -276,8 +278,12 @@ async function fetchLeaderboard(trackId) {
 
 // Update the UI with the best time for the current track
 async function updateBestTimeUI(trackId) {
-    const bestTime = await getBestTime(trackId);
-    document.getElementById('best-time').textContent = `Best: ${bestTime}`;
+    bestTime = await getBestTime(trackId);
+    if (bestTime) {
+        document.getElementById('best-time').textContent = `Best: ${bestTime.toFixed(2)}`;
+    } else {
+        document.getElementById('best-time').textContent = `No Record`;
+    }
 }
 
 const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
@@ -387,14 +393,14 @@ document.addEventListener("DOMContentLoaded", () => {
     joystickContainer.style.display = "block";
 
     let startX, startY;
-    const maxDistance = 60; // Maximum joystick displacement
+    const maxDistance = 30; // Maximum joystick displacement
 
     const updateJoystickState = (dx, dy) => {
         const threshold = 20; // Minimum displacement to trigger an action
         joystickState.up = dy < -threshold;
         joystickState.down = dy > threshold;
-        joystickState.left = dx < -threshold;
-        joystickState.right = dx > threshold;
+        joystickState.left = dx < -threshold / 4;
+        joystickState.right = dx > threshold / 4;
 
         if (joystickState.up) console.log("Move Forward");
         if (joystickState.down) console.log("Move Backward");
@@ -439,6 +445,39 @@ document.addEventListener("DOMContentLoaded", () => {
     joystickContainer.addEventListener("touchend", handleTouchEnd);
 });
 
+function adjustGameLogoForMobile() {
+    const gameLogo = document.getElementById("game-logo");
+
+    if (isMobileDevice()) {
+        console.log("Adjusting game logo for mobile.");
+        gameLogo.style.top = "unset"; // Remove the `top` property
+        gameLogo.style.bottom = "20px"; // Position 20px from the bottom
+    } else {
+        console.log("Desktop detected, restoring game logo position.");
+        gameLogo.style.bottom = "unset"; // Remove the `bottom` property
+        gameLogo.style.top = "20px"; // Reset to default
+    }
+}
+
+function updateCameraFOV() {
+    const aspect = window.innerWidth / window.innerHeight;
+
+    if (aspect > 1) {
+        // Landscape orientation: set vertical FOV to 75
+        camera.fov = 75;
+    } else {
+        // Portrait orientation: calculate vertical FOV for horizontal FOV of 75
+        const horizontalFOV = 75;
+        camera.fov = 2 * Math.atan(Math.tan((horizontalFOV * Math.PI) / 360) / aspect) * (180 / Math.PI);
+    }
+
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+}
+
+// Add event listener for window resize to update FOV dynamically
+window.addEventListener("resize", updateCameraFOV);
+
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
@@ -459,7 +498,7 @@ function init() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
-
+    updateCameraFOV();
     // Initialize the track
     initializeTrack();
     loadModels();
@@ -540,9 +579,7 @@ function loadModels() {
         coin = gltf.scene;
         coin.scale.set(10, 10, 10);
         // Position the coin 200 units away from the kart in the "direction" vector
-        const offset = direction.clone().normalize().multiplyScalar(200); // Scale direction vector to 200 units
-        coin.position.copy(kart.position.clone().add(offset)); // Add offset to kart's position
-        coin.position.y = kart.position.y + 20; // Adjust the height if needed (10 units above kart's height)
+        coin.position.set(0,20,-200); // Add offset to kart's position
         scene.add(coin);
         obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
@@ -725,8 +762,10 @@ function debounce(func, delay) {
 function onWindowResize() {
     setTimeout(() => {
         // Use visualViewport if available, fallback to window dimensions
-        const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-        const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        // const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        // const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
         // Update camera and renderer
         camera.aspect = width / height;
@@ -747,6 +786,12 @@ window.addEventListener("resize", onWindowResize);
 
 // Add the resize event listener with debounce
 window.addEventListener("resize", debounce(onWindowResize, 200));
+
+// Detect and adjust on page load
+document.addEventListener("DOMContentLoaded", adjustGameLogoForMobile);
+
+// Adjust on resize for dynamic behavior
+window.addEventListener("resize", adjustGameLogoForMobile);
 
 init();
 onWindowResize(); // Ensure proper size on load
