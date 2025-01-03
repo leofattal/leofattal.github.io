@@ -168,7 +168,7 @@ async function getBestTime(trackId) {
             .select('best_time')
             .eq('user_id', userId)
             .eq('track_id', trackId);
-            // .single(); // Expect a single row
+        // .single(); // Expect a single row
 
         if (error) {
             if (error.code === 'PGRST116') {
@@ -579,7 +579,7 @@ function loadModels() {
         coin = gltf.scene;
         coin.scale.set(10, 10, 10);
         // Position the coin 200 units away from the kart in the "direction" vector
-        coin.position.set(0,20,-200); // Add offset to kart's position
+        coin.position.set(0, 30, -200); // Add offset to kart's position
         scene.add(coin);
         obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
@@ -599,6 +599,40 @@ function getQuaternionFromVectors(u0, u1) {
     const cross = new THREE.Vector3().crossVectors(v0, v1);
     const q = new THREE.Quaternion(cross.x, cross.y, cross.z, 1 + dot);
     return q.normalize();
+}
+
+// Collision detection and flashing logic
+function checkCoinCollision() {
+    if (!coin || !kart) return;
+
+    // Check if the kart is close to the coin (bounding box or distance)
+    const kartBox = new THREE.Box3().setFromObject(kart);
+    const coinBox = new THREE.Box3().setFromObject(coin);
+
+    if (kartBox.intersectsBox(coinBox)) {
+        // Trigger the flashing effect
+        triggerFlashingEffect();
+
+        // Remove the coin from the scene after collision
+        scene.remove(coin);
+        coin = null; // Avoid multiple triggers
+    }
+}
+
+function triggerFlashingEffect() {
+    let flashCount = 0;
+    const maxFlashes = 6; // Number of flashes (on/off cycles)
+    const flashInterval = 200; // Flash duration in milliseconds
+
+    const flashTimer = setInterval(() => {
+        kart.visible = !kart.visible; // Toggle visibility
+        flashCount++;
+
+        if (flashCount >= maxFlashes) {
+            clearInterval(flashTimer); // Stop flashing
+            kart.visible = true; // Ensure kart is visible at the end
+        }
+    }, flashInterval);
 }
 
 function animate() {
@@ -728,6 +762,9 @@ function animate() {
             showGameOver();
             return;
         }
+
+        // Check collision with coin
+        checkCoinCollision();
     }
 
     renderer.render(scene, camera);
