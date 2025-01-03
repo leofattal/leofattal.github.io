@@ -12,8 +12,9 @@ const numTracks = 2; // Total number of tracks
 
 let timerDiv, finishDiv;
 let startTime = null, finishTime = null;
-let isAccelerating = false, startX = 0, currentX = 0;
 let velocity = 0, verticalVelocity = 0;
+let joystickState = { up: false, down: false, left: false, right: false };
+let joystickContainer;
 const acceleration = 0.02, deceleration = 0.01, maxSpeed = 3.5, friction = 0.005, turnSpeed = 0.03, gravity = -2;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
@@ -261,9 +262,6 @@ async function fetchLeaderboard(trackId) {
     }
 }
 
-
-
-
 // Update the UI with the best time for the current track
 async function updateBestTimeUI(trackId) {
     const bestTime = await getBestTime(trackId);
@@ -307,32 +305,28 @@ document.addEventListener('keydown', function initializeAudioContext() {
     document.removeEventListener('keydown', initializeAudioContext);
 });
 
+// Initialize on Joystick Event
+function initializeOnJoystickEvent() {
+    // Check if joystickState has any active input
+
+    console.log("Joystick triggered, initializing...");
+    startTime = performance.now();
+    leaderboardDiv.style.display = 'none';
+    document.getElementById('game-logo').style.display = 'none';
+
+    // Remove the listener to prevent re-triggering
+    if (joystickContainer) {
+        joystickContainer.removeEventListener("touchstart", initializeOnJoystickEvent);
+    }
+
+}
+
 function createDisplay(element, styles, innerHTML) {
     element = document.createElement('div');
     Object.assign(element.style, styles);
     element.innerHTML = innerHTML;
     document.body.appendChild(element);
     return element;
-}
-
-function setupTouchControls() {
-    document.addEventListener('touchstart', e => {
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        currentX = touch.clientX;
-        isAccelerating = true;
-    });
-
-    document.addEventListener('touchmove', e => {
-        const touch = e.touches[0];
-        currentX = touch.clientX;
-        const deltaX = currentX - startX;
-        if (deltaX < -5 && velocity !== 0) kart.rotateY(turnSpeed * (velocity / maxSpeed));
-        if (deltaX > 5 && velocity !== 0) kart.rotateY(-turnSpeed * (velocity / maxSpeed));
-        startX = currentX;
-    });
-
-    document.addEventListener('touchend', () => isAccelerating = false);
 }
 
 // Function to toggle the track
@@ -370,6 +364,69 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-track-button').addEventListener('click', toggleTrack);
 });
 
+// Joystick if mobile
+document.addEventListener("DOMContentLoaded", () => {
+    // Detect if the browser is mobile
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    if (!isMobile) return;
+
+    joystickContainer = document.getElementById("joystick-container");
+    const joystickKnob = document.getElementById("joystick-knob");
+    joystickContainer.style.display = "block";
+
+    let startX, startY;
+    const maxDistance = 60; // Maximum joystick displacement
+
+    const updateJoystickState = (dx, dy) => {
+        const threshold = 20; // Minimum displacement to trigger an action
+        joystickState.up = dy < -threshold;
+        joystickState.down = dy > threshold;
+        joystickState.left = dx < -threshold;
+        joystickState.right = dx > threshold;
+
+        if (joystickState.up) console.log("Move Forward");
+        if (joystickState.down) console.log("Move Backward");
+        if (joystickState.left) console.log("Turn Left");
+        if (joystickState.right) console.log("Turn Right");
+    };
+
+    const handleTouchMove = (event) => {
+        const touch = event.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        const distance = Math.min(Math.sqrt(dx * dx + dy * dy), maxDistance);
+        const angle = Math.atan2(dy, dx);
+
+        const offsetX = distance * Math.cos(angle);
+        const offsetY = distance * Math.sin(angle);
+
+        // Apply displacement while keeping the knob visually centered
+        joystickKnob.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+
+        updateJoystickState(offsetX, offsetY);
+    };
+
+    const handleTouchEnd = () => {
+        joystickKnob.style.transform = "translate(-50%, -50%)";
+
+        // Reset joystick state
+        joystickState.up = joystickState.down = joystickState.left = joystickState.right = false;
+    };
+
+    joystickContainer.addEventListener("touchstart", (event) => {
+        const touch = event.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        joystickKnob.style.transition = "none";
+        setupAudio();
+        initializeOnJoystickEvent();
+    });
+
+    joystickContainer.addEventListener("touchmove", handleTouchMove);
+    joystickContainer.addEventListener("touchend", handleTouchEnd);
+});
+
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
@@ -401,7 +458,6 @@ function init() {
     window.addEventListener('resize', onWindowResize);
     document.addEventListener('keydown', e => keyboard[e.key] = true);
     document.addEventListener('keyup', e => keyboard[e.key] = false);
-    setupTouchControls();
     animate();
 }
 
@@ -422,7 +478,7 @@ function loadTrack() {
         })
         .then(config => {
             const loader = new THREE.GLTFLoader();
-            
+
             loader.load(config.path, gltf => {
                 track = gltf.scene;
 
@@ -480,15 +536,6 @@ function loadModels() {
     });
 }
 
-function getSignedAngle(u, v, axis) {
-    u.normalize();
-    v.normalize();
-    const dot = Math.max(-1, Math.min(1, u.dot(v)));
-    const angle = Math.acos(dot);
-    const cross = new THREE.Vector3().crossVectors(u, v);
-    return angle * Math.sign(cross.dot(axis));
-}
-
 function getQuaternionFromVectors(u0, u1) {
     const v0 = u0.clone().normalize();
     const v1 = u1.clone().normalize();
@@ -511,7 +558,7 @@ function animate() {
         const elapsedTime = (performance.now() - startTime) / 1000;
         timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
     }
-    
+
     const delta = clock.getDelta();
     if (donut) donut.rotateX(donutAngularVelocity * delta / 0.08);
     if (coin) coin.rotateY(2 * donutAngularVelocity * delta / 0.08);
@@ -526,16 +573,16 @@ function animate() {
 
     if (kart) {
         oldZ = kart.position.z;
-        if ((keyboard['ArrowUp'] || isAccelerating) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
-        if (keyboard['ArrowDown'] && isOnGround) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
-        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !isAccelerating && isOnGround) {
+        if ((keyboard['ArrowUp'] || joystickState.up) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
+        if ((keyboard['ArrowDown'] || joystickState.down) && isOnGround) velocity = Math.max(velocity - acceleration * delta / .008, -maxSpeed / 2);
+        if (!keyboard['ArrowUp'] && !keyboard['ArrowDown'] && !joystickState.up && !joystickState.down && isOnGround) {
             if (velocity > 0) velocity = Math.max(velocity - friction * delta / .008, 0);
             if (velocity < 0) velocity = Math.min(velocity + friction * delta / .008, 0);
         }
 
         steer = 0;
-        if (keyboard['ArrowLeft'] && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
-        if (keyboard['ArrowRight'] && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
+        if ((keyboard['ArrowLeft'] || joystickState.left) && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
+        if ((keyboard['ArrowRight'] || joystickState.right) && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
 
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
@@ -654,10 +701,40 @@ function restartGame() {
     location.reload();
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+// Debounce function to limit execution frequency
+function debounce(func, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => func.apply(this, args), delay);
+    };
 }
 
+function onWindowResize() {
+    setTimeout(() => {
+        // Use visualViewport if available, fallback to window dimensions
+        const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+        // Update camera and renderer
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+
+        // Ensure the canvas matches the viewport
+        const canvas = renderer.domElement;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+
+        console.log(`Viewport resized: ${width}x${height}`);
+    }, 100); // Delay for stabilization
+}
+
+// Add resize listener
+window.addEventListener("resize", onWindowResize);
+
+// Add the resize event listener with debounce
+window.addEventListener("resize", debounce(onWindowResize, 200));
+
 init();
+onWindowResize(); // Ensure proper size on load
