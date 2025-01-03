@@ -448,15 +448,15 @@ document.addEventListener("DOMContentLoaded", () => {
 function adjustGameLogoForMobile() {
     const gameLogo = document.getElementById("game-logo");
 
-    if (isMobileDevice()) {
-        console.log("Adjusting game logo for mobile.");
-        gameLogo.style.top = "unset"; // Remove the `top` property
-        gameLogo.style.bottom = "20px"; // Position 20px from the bottom
-    } else {
-        console.log("Desktop detected, restoring game logo position.");
-        gameLogo.style.bottom = "unset"; // Remove the `bottom` property
-        gameLogo.style.top = "20px"; // Reset to default
-    }
+    // if (isMobileDevice()) {
+    //     console.log("Adjusting game logo for mobile.");
+    //     gameLogo.style.top = "unset"; // Remove the `top` property
+    //     gameLogo.style.bottom = "20px"; // Position 20px from the bottom
+    // } else {
+    //     console.log("Desktop detected, restoring game logo position.");
+    //     gameLogo.style.bottom = "unset"; // Remove the `bottom` property
+    //     gameLogo.style.top = "20px"; // Reset to default
+    // }
 }
 
 function updateCameraFOV() {
