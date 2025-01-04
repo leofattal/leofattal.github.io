@@ -5,13 +5,14 @@ let scene, camera, renderer;
 let kart, donut, coin;
 const clock = new THREE.Clock();
 const keyboard = {};
-let track, trackUrl;
+let track;
 const obstacleBoxes = [];
 let trackId = 0; // Initial track ID
 const numTracks = 2; // Total number of tracks
 
-let timerDiv, finishDiv;
+let timerDiv, finishDiv, coinDiv;
 let startTime = null, finishTime = null, bestTime = null;
+let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
@@ -333,6 +334,14 @@ function createDisplay(element, styles, innerHTML) {
 
 // Function to toggle the track
 function toggleTrack() {
+    // Stop and reset the timer
+    startTime = null; // Reset the start time
+    if (timerDiv) {
+        timerDiv.innerHTML = 'Time: 0.00s'; // Reset the timer display
+        finishDiv.innerHTML = 'Best: --'; // Reset the best time display
+        coinDiv.innerHTML = 'Coins: 0'; // Reset the coin count
+    }
+    
     // Increment the track ID, cycling back to 0 when reaching numTracks
     trackId = (trackId + 1) % numTracks;
     console.log(`Switched to track ${trackId}`);
@@ -511,7 +520,8 @@ function init() {
     loadModels();
     loadKartSound();
     timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
-    finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, '  --  ');
+    finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Best:  --  ');
+    coinDiv = createDisplay(coinDiv, { position: 'absolute', top: '70px', right: '10px', color: 'gold', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Coins: 0');
 
     window.addEventListener('resize', onWindowResize);
     document.addEventListener('keydown', e => keyboard[e.key] = true);
@@ -567,10 +577,36 @@ function loadModels() {
         kart = gltf.scene;
         kart.scale.set(0.5, 0.5, 0.5);
         kart.add(camera);
-        camera.position.set(0, 100, 200);
-        camera.lookAt(0, 2, 0);
         kart.position.set(0, 0, 0);
         scene.add(kart);
+
+        // Initial camera position (far away)
+        const startPosition = { x: 0, y: 10000, z: 10000 };
+        camera.position.set(startPosition.x, startPosition.y, startPosition.z);
+
+        // Target camera position (close to kart)
+        const targetPosition = { x: 0, y: 100, z: 200 };
+
+        const startTime = performance.now();
+        const duration = 2000; // 2 seconds
+
+        function animateCamera() {
+            const elapsedTime = performance.now() - startTime;
+            const t = Math.min(elapsedTime / duration, 1); // Normalized time [0, 1]
+
+            // Correctly interpolate using the fixed start position
+            camera.position.x = THREE.MathUtils.lerp(startPosition.x, targetPosition.x, t);
+            camera.position.y = THREE.MathUtils.lerp(startPosition.y, targetPosition.y, t);
+            camera.position.z = THREE.MathUtils.lerp(startPosition.z, targetPosition.z, t);
+
+            camera.lookAt(0, 2, 0); // Ensure camera keeps looking at the kart
+
+            if (t < 1) {
+                requestAnimationFrame(animateCamera); // Continue animating
+            }
+        }
+
+        animateCamera(); // Start animation
     });
 
     loader.load('assets/donut.gltf', gltf => {
@@ -619,10 +655,40 @@ function checkCoinCollision() {
     if (kartBox.intersectsBox(coinBox)) {
         // Trigger the flashing effect
         triggerFlashingEffect();
+        numCoins++; // Increment the coin count
+        coinDiv.innerHTML = `Coins: ${numCoins}`;
 
-        // Remove the coin from the scene after collision
-        scene.remove(coin);
-        coin = null; // Avoid multiple triggers
+        // Reposition the coin
+        repositionCoin();
+    }
+}
+
+function repositionCoin() {
+    const randomOffset = () => Math.random() * 2000 - 1000; // Generate random offset in [-1000, +1000]
+    const raycaster = new THREE.Raycaster();
+    const downDirection = new THREE.Vector3(0, -1, 0);
+
+    // Try repositioning the coin until it lands on the track
+    let positioned = false;
+
+    while (!positioned) {
+        // Generate random X and Z offsets
+        const randomX = randomOffset();
+        const randomZ = randomOffset();
+
+        // Set the new position above the track
+        const newPosition = new THREE.Vector3(randomX, 1000, randomZ); // Start high above the track
+
+        // Cast a ray downwards from the new position
+        raycaster.set(newPosition, downDirection);
+        const intersects = raycaster.intersectObject(track, true);
+
+        if (intersects.length > 0) {
+            // Position the coin at the hit point
+            const groundPoint = intersects[0].point;
+            coin.position.set(groundPoint.x, groundPoint.y + 30, groundPoint.z); // Slightly above the ground
+            positioned = true; // Successful positioning
+        }
     }
 }
 
@@ -757,7 +823,7 @@ function animate() {
             if (kartX >= -100 && kartX <= 100 && kartZ <= 0 && oldZ > 0) { // always same finish condition now
                 finishTime = (performance.now() - startTime) / 1000;
                 if (finishTime > 20) {
-                    finishDiv.innerHTML = `${finishTime.toFixed(2)}s`;
+                    finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
                     finishSound.play();
                     saveBestTime();
                     startTime = performance.now();
