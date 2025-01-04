@@ -323,22 +323,6 @@ document.addEventListener('keydown', function initializeAudioContext() {
     document.removeEventListener('keydown', initializeAudioContext);
 });
 
-// Initialize on Joystick Event
-function initializeOnJoystickEvent() {
-    // Check if joystickState has any active input
-
-    console.log("Joystick triggered, initializing...");
-    startTime = performance.now();
-    leaderboardDiv.style.display = 'none';
-    document.getElementById('game-logo').style.display = 'none';
-
-    // Remove the listener to prevent re-triggering
-    if (joystickContainer) {
-        joystickContainer.removeEventListener("touchstart", initializeOnJoystickEvent);
-    }
-
-}
-
 function createDisplay(element, styles, innerHTML) {
     element = document.createElement('div');
     Object.assign(element.style, styles);
@@ -432,15 +416,33 @@ document.addEventListener("DOMContentLoaded", () => {
         joystickState.up = joystickState.down = joystickState.left = joystickState.right = false;
     };
 
-    joystickContainer.addEventListener("touchstart", (event) => {
+    // Define handleTouchStart function
+    const handleTouchStart = (event) => {
         const touch = event.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
         joystickKnob.style.transition = "none";
+
+        // Initialize audio and timer on first touch
         setupAudio();
         initializeOnJoystickEvent();
-    });
+    };
 
+    // Initialize on Joystick Event
+    function initializeOnJoystickEvent() {
+        console.log("Joystick triggered, initializing...");
+        startTime = performance.now();
+        leaderboardDiv.style.display = 'none';
+        document.getElementById('game-logo').style.display = 'none';
+
+        // Remove the listener to prevent re-triggering
+        if (joystickContainer) {
+            joystickContainer.removeEventListener("touchstart", handleTouchStart);
+        }
+    }
+
+    // Add event listeners
+    joystickContainer.addEventListener("touchstart", handleTouchStart);
     joystickContainer.addEventListener("touchmove", handleTouchMove);
     joystickContainer.addEventListener("touchend", handleTouchEnd);
 });
