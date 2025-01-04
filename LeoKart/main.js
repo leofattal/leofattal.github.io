@@ -366,30 +366,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-track-button').addEventListener('click', toggleTrack);
 });
 
-// Joystick if mobile
+// Joystick logic for mobile devices
 document.addEventListener("DOMContentLoaded", () => {
-    // Detect if the browser is mobile
     const isMobile = isMobileDevice();
     if (!isMobile) return;
 
     joystickContainer = document.getElementById("joystick-container");
     const joystickKnob = document.getElementById("joystick-knob");
+    const steerLeft = document.getElementById("steer-left");
+    const steerRight = document.getElementById("steer-right");
+
     joystickContainer.style.display = "block";
+    document.getElementById("steering-controls").style.display = "flex";
 
     let startX, startY;
-    const maxDistance = 30; // Maximum joystick displacement
+    const maxDistance = 30;
 
     const updateJoystickState = (dx, dy) => {
         const threshold = 20; // Minimum displacement to trigger an action
         joystickState.up = dy < -threshold;
         joystickState.down = dy > threshold;
-        joystickState.left = dx < -threshold / 4;
-        joystickState.right = dx > threshold / 4;
 
         if (joystickState.up) console.log("Move Forward");
         if (joystickState.down) console.log("Move Backward");
-        if (joystickState.left) console.log("Turn Left");
-        if (joystickState.right) console.log("Turn Right");
     };
 
     const handleTouchMove = (event) => {
@@ -403,48 +402,54 @@ document.addEventListener("DOMContentLoaded", () => {
         const offsetX = distance * Math.cos(angle);
         const offsetY = distance * Math.sin(angle);
 
-        // Apply displacement while keeping the knob visually centered
         joystickKnob.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
-
         updateJoystickState(offsetX, offsetY);
     };
 
     const handleTouchEnd = () => {
         joystickKnob.style.transform = "translate(-50%, -50%)";
-
-        // Reset joystick state
-        joystickState.up = joystickState.down = joystickState.left = joystickState.right = false;
+        joystickState.up = joystickState.down = false;
     };
 
-    // Define handleTouchStart function
     const handleTouchStart = (event) => {
         const touch = event.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
         joystickKnob.style.transition = "none";
 
-        // Initialize audio and timer on first touch
         setupAudio();
         initializeOnJoystickEvent();
     };
 
-    // Initialize on Joystick Event
     function initializeOnJoystickEvent() {
         console.log("Joystick triggered, initializing...");
         startTime = performance.now();
         leaderboardDiv.style.display = 'none';
         document.getElementById('game-logo').style.display = 'none';
 
-        // Remove the listener to prevent re-triggering
-        if (joystickContainer) {
-            joystickContainer.removeEventListener("touchstart", handleTouchStart);
-        }
+        joystickContainer.removeEventListener("touchstart", handleTouchStart);
     }
 
-    // Add event listeners
     joystickContainer.addEventListener("touchstart", handleTouchStart);
     joystickContainer.addEventListener("touchmove", handleTouchMove);
     joystickContainer.addEventListener("touchend", handleTouchEnd);
+
+    // Steering button logic
+    steerLeft.addEventListener("touchstart", () => {
+        joystickState.left = true;
+        console.log("Turn Left");
+    });
+    steerLeft.addEventListener("touchend", () => {
+        joystickState.left = false;
+    });
+
+    steerRight.addEventListener("touchstart", () => {
+        joystickState.right = true;
+        console.log("Turn Right");
+    });
+    steerRight.addEventListener("touchend", () => {
+        joystickState.right = false;
+    });
 });
 
 function adjustGameLogoForMobile() {
