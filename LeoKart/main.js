@@ -23,6 +23,8 @@ let donutAngularVelocity = 0.05, gameOver = false;
 let audioContext = null, audioBuffer = null, audioSource = null, gainNode = null;
 let finishSound = new Audio('assets/finish-sound.mp3');
 finishSound.volume = 0.5;
+let coinSound = new Audio('assets/coin-sound.mp3');
+coinSound.volume = 1.0;
 
 function isMobileDevice() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -654,6 +656,7 @@ function checkCoinCollision() {
 
     if (kartBox.intersectsBox(coinBox)) {
         // Trigger the flashing effect
+        coinSound.play();
         triggerFlashingEffect();
         numCoins++; // Increment the coin count
         coinDiv.innerHTML = `Coins: ${numCoins}`;
@@ -664,20 +667,28 @@ function checkCoinCollision() {
 }
 
 function repositionCoin() {
-    const randomOffset = () => Math.random() * 2000 - 1000; // Generate random offset in [-1000, +1000]
+    // Compute the bounding box for the track
+    const trackBox = new THREE.Box3().setFromObject(track);
+
+    // Extract the min and max X, Z values from the track's bounding box
+    const minX = trackBox.min.x;
+    const maxX = trackBox.max.x;
+    const minZ = trackBox.min.z;
+    const maxZ = trackBox.max.z;
+
+    const randomInRange = (min, max) => Math.random() * (max - min) + min; // Helper to get a random value in range
     const raycaster = new THREE.Raycaster();
     const downDirection = new THREE.Vector3(0, -1, 0);
 
-    // Try repositioning the coin until it lands on the track
     let positioned = false;
 
     while (!positioned) {
-        // Generate random X and Z offsets
-        const randomX = randomOffset();
-        const randomZ = randomOffset();
+        // Generate random X and Z within the track's bounds
+        const randomX = randomInRange(minX, maxX);
+        const randomZ = randomInRange(minZ, maxZ);
 
-        // Set the new position above the track
-        const newPosition = new THREE.Vector3(randomX, 1000, randomZ); // Start high above the track
+        // Set the new position high above the track
+        const newPosition = new THREE.Vector3(randomX, 1000, randomZ);
 
         // Cast a ray downwards from the new position
         raycaster.set(newPosition, downDirection);
