@@ -121,7 +121,7 @@ canvas {
     top: 115px;
     left: 20px;
     width: auto;
-    max-width: 300px;
+    max-width: 350px;
     background: rgba(0, 0, 0, 0.6); /* Slightly darker background */
     color: white;
     padding: 15px;
@@ -136,6 +136,8 @@ canvas {
     margin: 0 0 10px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
     padding-bottom: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 .leaderboard-list {
