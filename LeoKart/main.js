@@ -387,6 +387,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const isMobile = isMobileDevice();
     if (!isMobile) return;
 
+    const gameCanvas = document.getElementById("game-canvas");
+
+    // Prevent context menu on long press
+    gameCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    // Optional: Prevent text selection on long press
+    gameCanvas.addEventListener("selectstart", (e) => e.preventDefault());
+
     joystickContainer = document.getElementById("joystick-container");
     const joystickKnob = document.getElementById("joystick-knob");
     const steerLeft = document.getElementById("steer-left");
