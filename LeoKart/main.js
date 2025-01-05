@@ -352,8 +352,9 @@ function toggleTrack() {
     localStorage.setItem('lastTrackId', trackId);
 
     // Logic to reload or update the track
-    loadTrack();
-    loadModels();
+    loadTrack(() => {
+        loadModels();
+    });
 
     // Update the best time display for the new track
     updateBestTimeUI(trackId);
@@ -366,7 +367,9 @@ function initializeTrack() {
     console.log(`Starting with track ${trackId}`);
 
     // Load the saved track
-    loadTrack();
+    loadTrack(() => {
+        loadModels();
+    });
 
     // Update the best time display for the starting track
     updateBestTimeUI(trackId);
@@ -506,7 +509,7 @@ function init() {
     ]);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(0, 10, -20);
+    camera.position.set(0, 10000, 10000);
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -519,7 +522,6 @@ function init() {
     updateCameraFOV();
     // Initialize the track
     initializeTrack();
-    loadModels();
     loadKartSound();
     timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
     finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Best:  --  ');
@@ -531,7 +533,7 @@ function init() {
     animate();
 }
 
-function loadTrack() {
+function loadTrack(callback) {
     leaderboardDiv.style.display = 'block';
     fetchLeaderboard(trackId);
     if (track) scene.remove(track); // Remove the existing track if it exists
@@ -565,6 +567,10 @@ function loadTrack() {
 
                 scene.add(track);
                 console.log(`Track ${trackId} loaded successfully!`);
+
+                if (typeof callback === "function") {
+                    callback(); // Call the callback once the track is loaded
+                }
             }, undefined, error => console.error('Error loading track asset:', error));
         })
         .catch(error => console.error('Error loading track configuration:', error));
