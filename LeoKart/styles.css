@@ -23,6 +23,12 @@ canvas {
     height: 100%;
     z-index: 0;
     /* Ensure it stays behind other UI elements */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    touch-action: manipulation;
+    cursor: default; /* Optional: show a default cursor */
 }
 
 #login-container {
