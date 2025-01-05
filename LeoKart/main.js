@@ -10,7 +10,9 @@ const obstacleBoxes = [];
 let trackId = 0; // Initial track ID
 const numTracks = 2; // Total number of tracks
 
-let timerDiv, finishDiv, coinDiv;
+const timerDiv = document.getElementById('timer');
+const finishDiv = document.getElementById('best');
+const coinDiv = document.getElementById('coins');
 let startTime = null, finishTime = null, bestTime = null;
 let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
@@ -340,7 +342,7 @@ function toggleTrack() {
     startTime = null; // Reset the start time
     if (timerDiv) {
         timerDiv.innerHTML = 'Time: 0.00s'; // Reset the timer display
-        finishDiv.innerHTML = 'Best: --'; // Reset the best time display
+        finishDiv.innerHTML = 'Best: -- '; // Reset the best time display
         coinDiv.innerHTML = 'Coins: 0'; // Reset the coin count
     }
     
@@ -523,9 +525,9 @@ function init() {
     // Initialize the track
     initializeTrack();
     loadKartSound();
-    timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
-    finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Best:  --  ');
-    coinDiv = createDisplay(coinDiv, { position: 'absolute', top: '70px', right: '10px', color: 'gold', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Coins: 0');
+    // timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
+    // finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Best:  --  ');
+    // coinDiv = createDisplay(coinDiv, { position: 'absolute', top: '70px', right: '10px', color: 'gold', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Coins: 0');
 
     window.addEventListener('resize', onWindowResize);
     document.addEventListener('keydown', e => keyboard[e.key] = true);
