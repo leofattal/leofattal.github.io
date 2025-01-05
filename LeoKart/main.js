@@ -392,6 +392,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const steerLeft = document.getElementById("steer-left");
     const steerRight = document.getElementById("steer-right");
 
+    // Prevent long-press context menu on steering buttons
+    steerLeft.addEventListener("contextmenu", (e) => e.preventDefault());
+    steerRight.addEventListener("contextmenu", (e) => e.preventDefault());
+
     joystickContainer.style.display = "block";
     document.getElementById("steering-controls").style.display = "flex";
 

@@ -251,6 +251,9 @@ canvas {
     touch-action: none;
     user-select: none;
     cursor: pointer;
+    -webkit-user-select: none; /* Prevent text selection on WebKit-based browsers */
+    -moz-user-select: none; /* Prevent text selection on Firefox */
+    -ms-user-select: none; /* Prevent text selection on IE */
 }
 
 .steer-button:active {
