@@ -1,5 +1,5 @@
 
-const apiKey = "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";
+const apiKey = "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";
 
 import { HfInference } from 'https://cdn.jsdelivr.net/npm/@huggingface/inference@2.8.1/+esm';
 
