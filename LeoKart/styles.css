@@ -28,7 +28,8 @@ canvas {
     -moz-user-select: none;
     -ms-user-select: none;
     touch-action: manipulation;
-    cursor: default; /* Optional: show a default cursor */
+    cursor: default;
+    /* Optional: show a default cursor */
 }
 
 #login-container {
@@ -128,7 +129,8 @@ canvas {
     left: 20px;
     width: auto;
     max-width: 350px;
-    background: rgba(0, 0, 0, 0.6); /* Slightly darker background */
+    background: rgba(0, 0, 0, 0.6);
+    /* Slightly darker background */
     color: white;
     padding: 15px;
     border-radius: 12px;
@@ -162,12 +164,14 @@ canvas {
 }
 
 .leaderboard-list li:last-child {
-    border-bottom: none; /* Remove border for the last item */
+    border-bottom: none;
+    /* Remove border for the last item */
 }
 
 .rank {
     font-weight: bold;
-    color: #FFD700; /* Gold color for ranks */
+    color: #FFD700;
+    /* Gold color for ranks */
     margin-right: 10px;
 }
 
@@ -177,20 +181,29 @@ canvas {
 }
 
 .time {
-    color: #90EE90; /* Light green for time */
+    color: #90EE90;
+    /* Light green for time */
     font-family: 'Courier New', monospace;
 }
 
 #game-logo {
     position: absolute;
-    bottom: 20px; /* 20px from the top */
-    left: 50%; /* Center horizontally */
-    transform: translateX(-50%); /* Adjust position to account for image width */
-    width: 300px; /* Set a fixed width (adjust as needed) */
-    border-radius: 12px; /* Rounded corners */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Optional: subtle shadow for better visibility */
-    z-index: 1000; /* Ensure it appears above other elements */
-    animation: shimmer 2s infinite; /* Apply shimmer animation */
+    bottom: 20px;
+    /* 20px from the top */
+    left: 50%;
+    /* Center horizontally */
+    transform: translateX(-50%);
+    /* Adjust position to account for image width */
+    width: 300px;
+    /* Set a fixed width (adjust as needed) */
+    border-radius: 12px;
+    /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    /* Optional: subtle shadow for better visibility */
+    z-index: 1000;
+    /* Ensure it appears above other elements */
+    animation: shimmer 2s infinite;
+    /* Apply shimmer animation */
 }
 
 /* Keyframes for shimmering effect */
@@ -198,9 +211,11 @@ canvas {
     0% {
         opacity: 0.9;
     }
+
     50% {
         opacity: 0.9;
     }
+
     100% {
         opacity: 0.9;
     }
@@ -217,7 +232,8 @@ canvas {
     border-radius: 50%;
     touch-action: none;
     z-index: 1000;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
 }
 
 #joystick-knob {
@@ -240,7 +256,8 @@ canvas {
     display: flex;
     gap: 10px;
     z-index: 1000;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
 }
 
 .steer-button {
@@ -257,9 +274,12 @@ canvas {
     touch-action: none;
     user-select: none;
     cursor: pointer;
-    -webkit-user-select: none; /* Prevent text selection on WebKit-based browsers */
-    -moz-user-select: none; /* Prevent text selection on Firefox */
-    -ms-user-select: none; /* Prevent text selection on IE */
+    -webkit-user-select: none;
+    /* Prevent text selection on WebKit-based browsers */
+    -moz-user-select: none;
+    /* Prevent text selection on Firefox */
+    -ms-user-select: none;
+    /* Prevent text selection on IE */
 }
 
 .steer-button:active {
@@ -286,4 +306,25 @@ canvas {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     text-align: center;
+}
+
+#vr-toggle {
+    background-color: #8331ff;
+    color: white;
+    cursor: pointer;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-top: 5px;
+    transition: background-color 0.3s;
+}
+
+#vr-toggle:hover {
+    background-color: #6a27d0;
+}
+
+/* Hide VR button if WebXR is not supported */
+#vr-toggle.hidden {
+    display: none;
 }

@@ -27,6 +27,11 @@ let finishSound = new Audio('assets/finish-sound.mp3');
 finishSound.volume = 0.5;
 let coinSound = new Audio('assets/coin-sound.mp3');
 coinSound.volume = 1.0;
+let isVRMode = false;
+let vrButton;
+// VR controller variables
+let vrControllers = [];
+let controllerGrips = [];
 
 function isMobileDevice() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -345,7 +350,7 @@ function toggleTrack() {
         finishDiv.innerHTML = 'Best: -- '; // Reset the best time display
         coinDiv.innerHTML = 'Coins: 0'; // Reset the coin count
     }
-    
+
     // Increment the track ID, cycling back to 0 when reaching numTracks
     trackId = (trackId + 1) % numTracks;
     console.log(`Switched to track ${trackId}`);
@@ -528,6 +533,24 @@ function init() {
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
+    // Enable XR features
+    renderer.xr.enabled = true;
+
+    // Check if WebXR is available
+    if ('xr' in navigator) {
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+            if (supported) {
+                setupVRButton();
+            } else {
+                const vrToggle = document.getElementById('vr-toggle');
+                vrToggle.classList.add('hidden');
+            }
+        });
+    } else {
+        const vrToggle = document.getElementById('vr-toggle');
+        vrToggle.classList.add('hidden');
+    }
+
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -537,9 +560,6 @@ function init() {
     // Initialize the track
     initializeTrack();
     loadKartSound();
-    // timerDiv = createDisplay(timerDiv, { position: 'absolute', top: '10px', right: '10px', color: 'white', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Time: 0.00s');
-    // finishDiv = createDisplay(finishDiv, { position: 'absolute', top: '40px', right: '10px', color: 'red', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Best:  --  ');
-    // coinDiv = createDisplay(coinDiv, { position: 'absolute', top: '70px', right: '10px', color: 'gold', fontStyle: 'italic', fontSize: '2rem', zIndex: '100' }, 'Coins: 0');
 
     window.addEventListener('resize', onWindowResize);
     document.addEventListener('keydown', e => keyboard[e.key] = true);
@@ -741,6 +761,17 @@ function triggerFlashingEffect() {
 
 function animate() {
     if (gameOver) return;
+
+    // Use the renderer's animation loop for WebXR support
+    renderer.setAnimationLoop(render);
+}
+
+function render() {
+    if (gameOver) {
+        renderer.setAnimationLoop(null);
+        return;
+    }
+
     if (startTime !== null) {
         const elapsedTime = (performance.now() - startTime) / 1000;
         timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
@@ -770,6 +801,19 @@ function animate() {
         steer = 0;
         if ((keyboard['ArrowLeft'] || joystickState.left) && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
         if ((keyboard['ArrowRight'] || joystickState.right) && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
+
+        // VR controller steering - use left controller rotation
+        if (isVRMode && vrControllers.length > 0) {
+            const leftController = vrControllers[0];
+            if (leftController && leftController.rotation) {
+                // Extract rotation around Y axis (left/right turning)
+                const rotationY = leftController.rotation.y;
+                // Apply steering based on controller rotation
+                if (velocity !== 0 && isOnGround) {
+                    steer = rotationY * turnSpeed * 2 * (velocity / maxSpeed);
+                }
+            }
+        }
 
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
@@ -872,7 +916,6 @@ function animate() {
     }
 
     renderer.render(scene, camera);
-    requestAnimationFrame(animate);
 }
 
 function showGameOver() {
@@ -901,25 +944,10 @@ function debounce(func, delay) {
 }
 
 function onWindowResize() {
-    setTimeout(() => {
-        // Use visualViewport if available, fallback to window dimensions
-        // const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-        // const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Update camera and renderer
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-
-        // Ensure the canvas matches the viewport
-        const canvas = renderer.domElement;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-
-        console.log(`Viewport resized: ${width}x${height}`);
-    }, 100); // Delay for stabilization
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    updateCameraFOV();
 }
 
 // Add resize listener
@@ -933,6 +961,144 @@ document.addEventListener("DOMContentLoaded", adjustGameLogoForMobile);
 
 // Adjust on resize for dynamic behavior
 window.addEventListener("resize", adjustGameLogoForMobile);
+
+// Setup VR button and functionality
+function setupVRButton() {
+    const vrToggle = document.getElementById('vr-toggle');
+
+    // Use Three.js VRButton to create and manage the WebXR session
+    vrButton = VRButton.createButton(renderer);
+    vrButton.style.display = 'none'; // Hide the default button, we'll use our own
+    document.body.appendChild(vrButton);
+
+    // Use our custom button to trigger the VR session
+    vrToggle.addEventListener('click', () => {
+        // Adjust camera position for VR mode to prevent motion sickness
+        if (!isVRMode) {
+            // Save original camera position before entering VR
+            if (kart) {
+                const originalPosition = camera.position.clone();
+                camera.userData.originalPosition = originalPosition;
+
+                // Move camera slightly higher and further back for VR
+                camera.position.set(0, 130, 250);
+                camera.lookAt(0, 2, 0);
+            }
+        } else {
+            // Restore original camera position when exiting VR
+            if (camera.userData.originalPosition) {
+                camera.position.copy(camera.userData.originalPosition);
+                camera.lookAt(0, 2, 0);
+            }
+        }
+
+        vrButton.click(); // Simulate click on the Three.js VRButton
+        isVRMode = !isVRMode;
+        vrToggle.textContent = isVRMode ? 'Exit VR' : 'Enter VR';
+
+        // Hide UI elements in VR mode
+        if (isVRMode) {
+            document.getElementById('game-overlay').style.display = 'none';
+            document.getElementById('joystick-container').style.display = 'none';
+            document.getElementById('steering-controls').style.display = 'none';
+            setupVRControllers();
+        } else {
+            document.getElementById('game-overlay').style.display = 'block';
+            if (isMobileDevice()) {
+                document.getElementById('joystick-container').style.display = 'block';
+                document.getElementById('steering-controls').style.display = 'flex';
+            }
+        }
+    });
+
+    // Listen for the end of the VR session
+    renderer.xr.addEventListener('sessionend', () => {
+        isVRMode = false;
+        vrToggle.textContent = 'Enter VR';
+
+        // Restore original camera position
+        if (camera.userData.originalPosition) {
+            camera.position.copy(camera.userData.originalPosition);
+            camera.lookAt(0, 2, 0);
+        }
+
+        document.getElementById('game-overlay').style.display = 'block';
+        if (isMobileDevice()) {
+            document.getElementById('joystick-container').style.display = 'block';
+            document.getElementById('steering-controls').style.display = 'flex';
+        }
+
+        // Clean up VR controllers
+        vrControllers.forEach(controller => {
+            scene.remove(controller);
+        });
+        controllerGrips.forEach(grip => {
+            scene.remove(grip);
+        });
+        vrControllers = [];
+        controllerGrips = [];
+    });
+}
+
+// Initialize VR controllers
+function setupVRControllers() {
+    // Controller models
+    const controllerModelFactory = new XRControllerModelFactory();
+
+    // Setup controllers
+    for (let i = 0; i < 2; i++) {
+        // Controller
+        const controller = renderer.xr.getController(i);
+        controller.addEventListener('selectstart', onVRTriggerStart);
+        controller.addEventListener('selectend', onVRTriggerEnd);
+        controller.addEventListener('squeezestart', onVRGripStart);
+        controller.addEventListener('squeezeend', onVRGripEnd);
+        controller.userData.index = i; // Left (0) or right (1) controller
+        scene.add(controller);
+        vrControllers.push(controller);
+
+        // Controller grip
+        const controllerGrip = renderer.xr.getControllerGrip(i);
+        controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
+        scene.add(controllerGrip);
+        controllerGrips.push(controllerGrip);
+    }
+
+    console.log("VR controllers initialized");
+}
+
+// VR controller event handlers
+function onVRTriggerStart(event) {
+    const controller = event.target;
+    // Accelerate with right controller trigger
+    if (controller.userData.index === 1) {
+        joystickState.up = true;
+    }
+}
+
+function onVRTriggerEnd(event) {
+    const controller = event.target;
+    // Stop acceleration with right controller trigger
+    if (controller.userData.index === 1) {
+        joystickState.up = false;
+    }
+}
+
+function onVRGripStart(event) {
+    const controller = event.target;
+    // Brake with right controller grip
+    if (controller.userData.index === 1) {
+        joystickState.down = true;
+    }
+}
+
+function onVRGripEnd(event) {
+    const controller = event.target;
+    // Stop braking with right controller grip
+    if (controller.userData.index === 1) {
+        joystickState.down = false;
+    }
+}
 
 init();
 onWindowResize(); // Ensure proper size on load
