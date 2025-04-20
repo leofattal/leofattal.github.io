@@ -309,19 +309,30 @@ canvas {
 }
 
 #vr-toggle {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
     background-color: #8331ff;
     color: white;
     cursor: pointer;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-weight: bold;
-    margin-top: 5px;
-    transition: background-color 0.3s;
+    font-size: 1.2rem;
+    z-index: 1001;
+    transition: background-color 0.3s, transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 #vr-toggle:hover {
     background-color: #6a27d0;
+    transform: translateX(-50%) scale(1.05);
+}
+
+#vr-toggle:active {
+    transform: translateX(-50%) scale(0.95);
 }
 
 /* Hide VR button if WebXR is not supported */

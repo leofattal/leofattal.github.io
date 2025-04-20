@@ -20,8 +20,28 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://unpkg.com/three@0.126.0/examples/js/webxr/VRButton.js"></script>
-    <script src="https://unpkg.com/three@0.126.0/examples/js/webxr/XRControllerModelFactory.js"></script>
+    <script>
+        // Manually define XRControllerModelFactory to make it globally accessible
+        window.XRControllerModelFactory = class XRControllerModelFactory {
+            constructor() {
+                this.gltfLoader = new THREE.GLTFLoader();
+                this.path = 'https://unpkg.com/three@0.126.0/examples/models/gltf/';
+            }
+
+            createControllerModel(controller) {
+                const controllerModel = new THREE.Group();
+
+                // Create simple visual as a fallback
+                const geometry = new THREE.CylinderGeometry(0.01, 0.02, 0.08, 16);
+                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.x = -Math.PI / 2;
+                controllerModel.add(mesh);
+
+                return controllerModel;
+            }
+        };
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
 </head>
@@ -30,6 +50,7 @@
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
     </div>
+    <button id="vr-toggle" class="control-button">Enter VR</button>
     <img id="game-logo" src="assets/LeoKart-logo.png" alt="LeoKart Logo">
     <div id="login-container">
         <div id="login-button"></div>
@@ -42,7 +63,6 @@
             <div id="button-container">
                 <button id="toggle-track-button">Toggle Track</button>
                 <button id="logout-button">Logout</button>
-                <button id="vr-toggle" class="control-button">Enter VR</button>
             </div>
         </div>
     </div>

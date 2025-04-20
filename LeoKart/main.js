@@ -913,6 +913,15 @@ function render() {
 
         // Check collision with coin
         checkCoinCollision();
+
+        // For VR mode, keep the kart in front of the user but at the same height as the track
+        if (isVRMode && camera.userData.vrMode) {
+            // Only have the kart follow the player in XZ plane (not Y)
+            // This maintains the kart's height based on the track
+
+            // When in VR, velocity should move the kart relative to its own orientation
+            // not relative to the camera orientation
+        }
     }
 
     renderer.render(scene, camera);
@@ -966,12 +975,7 @@ window.addEventListener("resize", adjustGameLogoForMobile);
 function setupVRButton() {
     const vrToggle = document.getElementById('vr-toggle');
 
-    // Use Three.js VRButton to create and manage the WebXR session
-    vrButton = VRButton.createButton(renderer);
-    vrButton.style.display = 'none'; // Hide the default button, we'll use our own
-    document.body.appendChild(vrButton);
-
-    // Use our custom button to trigger the VR session
+    // Custom implementation to create WebXR session without relying on VRButton
     vrToggle.addEventListener('click', () => {
         // Adjust camera position for VR mode to prevent motion sickness
         if (!isVRMode) {
@@ -984,29 +988,20 @@ function setupVRButton() {
                 camera.position.set(0, 130, 250);
                 camera.lookAt(0, 2, 0);
             }
-        } else {
-            // Restore original camera position when exiting VR
-            if (camera.userData.originalPosition) {
-                camera.position.copy(camera.userData.originalPosition);
-                camera.lookAt(0, 2, 0);
+
+            // Request VR session
+            if (navigator.xr) {
+                navigator.xr.requestSession('immersive-vr', {
+                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                }).then(onSessionStarted)
+                    .catch(error => {
+                        console.error('Error starting VR session:', error);
+                    });
             }
-        }
-
-        vrButton.click(); // Simulate click on the Three.js VRButton
-        isVRMode = !isVRMode;
-        vrToggle.textContent = isVRMode ? 'Exit VR' : 'Enter VR';
-
-        // Hide UI elements in VR mode
-        if (isVRMode) {
-            document.getElementById('game-overlay').style.display = 'none';
-            document.getElementById('joystick-container').style.display = 'none';
-            document.getElementById('steering-controls').style.display = 'none';
-            setupVRControllers();
         } else {
-            document.getElementById('game-overlay').style.display = 'block';
-            if (isMobileDevice()) {
-                document.getElementById('joystick-container').style.display = 'block';
-                document.getElementById('steering-controls').style.display = 'flex';
+            // End current session
+            if (renderer.xr.isPresenting) {
+                renderer.xr.getSession().end();
             }
         }
     });
@@ -1016,10 +1011,26 @@ function setupVRButton() {
         isVRMode = false;
         vrToggle.textContent = 'Enter VR';
 
-        // Restore original camera position
-        if (camera.userData.originalPosition) {
-            camera.position.copy(camera.userData.originalPosition);
-            camera.lookAt(0, 2, 0);
+        // Restore original camera parent and position when exiting VR
+        if (camera.userData.vrMode && camera.userData.originalParent) {
+            // Remove camera from scene
+            scene.remove(camera);
+
+            // Add camera back to kart
+            camera.userData.originalParent.add(camera);
+
+            // Restore original camera position
+            if (camera.userData.originalPosition) {
+                camera.position.copy(camera.userData.originalPosition);
+                camera.lookAt(0, 2, 0);
+            }
+
+            // Reset kart position and rotation to pre-VR state
+            kart.position.set(0, 0, 0);
+            kart.rotation.set(0, 0, 0);
+
+            // Clean up references
+            camera.userData.vrMode = false;
         }
 
         document.getElementById('game-overlay').style.display = 'block';
@@ -1038,12 +1049,54 @@ function setupVRButton() {
         vrControllers = [];
         controllerGrips = [];
     });
+
+    // Function to handle when a VR session is started
+    function onSessionStarted(session) {
+        renderer.xr.setSession(session);
+        isVRMode = true;
+        vrToggle.textContent = 'Exit VR';
+
+        // Adjust kart positioning for VR view
+        if (kart) {
+            // Store reference to original parent of camera (the kart)
+            const originalParent = camera.parent;
+
+            // Remove camera from kart and add it directly to the scene
+            // This makes the camera position controlled by WebXR and independent of kart
+            kart.remove(camera);
+            scene.add(camera);
+
+            // Store references for restoration when exiting VR
+            camera.userData.originalParent = originalParent;
+            camera.userData.vrMode = true;
+
+            // Position the kart in front of where the VR user will be standing
+            // In WebXR, the initial position is typically (0,0,0) facing negative Z
+            kart.position.set(0, 0, -3); // Position kart 3 units in front of the user
+
+            // Rotate kart to face away from the user (toward negative Z)
+            kart.rotation.y = Math.PI; // 180 degrees
+        }
+
+        // Hide UI elements in VR mode
+        document.getElementById('game-overlay').style.display = 'none';
+        document.getElementById('joystick-container').style.display = 'none';
+        document.getElementById('steering-controls').style.display = 'none';
+        setupVRControllers();
+    }
 }
 
 // Initialize VR controllers
 function setupVRControllers() {
-    // Controller models
-    const controllerModelFactory = new XRControllerModelFactory();
+    // Controller models - check if XRControllerModelFactory is available
+    let controllerModelFactory;
+
+    if (window.XRControllerModelFactory) {
+        controllerModelFactory = new window.XRControllerModelFactory();
+        console.log("Using XRControllerModelFactory for controller models");
+    } else {
+        console.warn("XRControllerModelFactory not found, using simplified controller visualization");
+    }
 
     // Setup controllers
     for (let i = 0; i < 2; i++) {
@@ -1054,12 +1107,26 @@ function setupVRControllers() {
         controller.addEventListener('squeezestart', onVRGripStart);
         controller.addEventListener('squeezeend', onVRGripEnd);
         controller.userData.index = i; // Left (0) or right (1) controller
+
+        // Add a simple visual for the controller if no model factory is available
+        if (!controllerModelFactory) {
+            const geometry = new THREE.BoxGeometry(0.03, 0.1, 0.03);
+            const material = new THREE.MeshBasicMaterial({
+                color: i === 0 ? 0x3333ff : 0xff3333 // Blue for left, red for right
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(0, -0.05, 0); // Offset to align with hand
+            controller.add(mesh);
+        }
+
         scene.add(controller);
         vrControllers.push(controller);
 
-        // Controller grip
+        // Controller grip with model (if factory available)
         const controllerGrip = renderer.xr.getControllerGrip(i);
-        controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
+        if (controllerModelFactory) {
+            controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
+        }
         scene.add(controllerGrip);
         controllerGrips.push(controllerGrip);
     }
