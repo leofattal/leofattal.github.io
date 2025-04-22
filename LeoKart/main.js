@@ -18,7 +18,8 @@ let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
-const acceleration = 0.02, deceleration = 0.01, maxSpeed = 3.5, friction = 0.005, turnSpeed = 0.03, gravity = -2;
+let scaleFactor = 0.1;
+const acceleration = 0.02 * scaleFactor, deceleration = 0.01 * scaleFactor, maxSpeed = 3.5 * scaleFactor, friction = 0.005 * scaleFactor, turnSpeed = 0.03, gravity = -2 * scaleFactor;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
 let donutAngularVelocity = 0.05, gameOver = false;
@@ -32,6 +33,8 @@ let vrButton;
 // VR controller variables
 let vrControllers = [];
 let controllerGrips = [];
+
+
 
 function isMobileDevice() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -528,7 +531,7 @@ function init() {
     ]);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(0, 10000, 10000);
+    camera.position.set(0, 10000 * scaleFactor, 10000 * scaleFactor);
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -590,10 +593,10 @@ function loadTrack(callback) {
 
                 // Apply configurations from JSON
                 if (config.scale) {
-                    track.scale.set(...config.scale);
+                    track.scale.set(...config.scale.map(scale => scale * scaleFactor));
                 }
                 if (config.position) {
-                    track.position.set(...config.position);
+                    track.position.set(...config.position.map(pos => pos * scaleFactor));
                 }
                 if (config.rotation) {
                     track.rotation.set(...config.rotation.map(deg => THREE.MathUtils.degToRad(deg))); // Convert degrees to radians
@@ -617,13 +620,13 @@ function loadModels() {
     const loader = new THREE.GLTFLoader();
     loader.load('assets/kart/scene.gltf', gltf => {
         kart = gltf.scene;
-        kart.scale.set(0.5, 0.5, 0.5);
+        kart.scale.set(0.5 * scaleFactor, 0.5 * scaleFactor, 0.5 * scaleFactor);
         kart.add(camera);
         kart.position.set(0, 0, 0);
         scene.add(kart);
 
         // Initial camera position (far away)
-        const startPosition = { x: 0, y: 10000, z: 10000 };
+        const startPosition = { x: 0, y: 10000 * scaleFactor, z: 10000 * scaleFactor };
         camera.position.set(startPosition.x, startPosition.y, startPosition.z);
 
         // Target camera position (close to kart)
@@ -641,7 +644,7 @@ function loadModels() {
             camera.position.y = THREE.MathUtils.lerp(startPosition.y, targetPosition.y, t);
             camera.position.z = THREE.MathUtils.lerp(startPosition.z, targetPosition.z, t);
 
-            camera.lookAt(0, 2, 0); // Ensure camera keeps looking at the kart
+            camera.lookAt(0, 2 * scaleFactor, 0); // Ensure camera keeps looking at the kart
 
             if (t < 1) {
                 requestAnimationFrame(animateCamera); // Continue animating
@@ -653,18 +656,18 @@ function loadModels() {
 
     loader.load('assets/donut.gltf', gltf => {
         donut = gltf.scene;
-        donut.scale.set(200, 200, 200);
+        donut.scale.set(200 * scaleFactor, 200 * scaleFactor, 200 * scaleFactor);
         donut.rotateZ(Math.PI / 2);
-        donut.position.set(280, 300, 2700);
+        donut.position.set(280 * scaleFactor, 300 * scaleFactor, 2700 * scaleFactor);
         scene.add(donut);
         obstacleBoxes.push(new THREE.Box3().setFromObject(donut));
     });
 
     loader.load('assets/coin.gltf', gltf => {
         coin = gltf.scene;
-        coin.scale.set(10, 10, 10);
+        coin.scale.set(10 * scaleFactor, 10 * scaleFactor, 10 * scaleFactor);
         // Position the coin 200 units away from the kart in the "direction" vector
-        coin.position.set(0, 30, -200); // Add offset to kart's position
+        coin.position.set(0, 30 * scaleFactor, -200 * scaleFactor   ); // Add offset to kart's position
         scene.add(coin);
         obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
@@ -728,7 +731,7 @@ function repositionCoin() {
         const randomZ = randomInRange(minZ, maxZ);
 
         // Set the new position high above the track
-        const newPosition = new THREE.Vector3(randomX, 1000, randomZ);
+        const newPosition = new THREE.Vector3(randomX, 1000 * scaleFactor, randomZ);
 
         // Cast a ray downwards from the new position
         raycaster.set(newPosition, downDirection);
@@ -737,7 +740,7 @@ function repositionCoin() {
         if (intersects.length > 0) {
             // Position the coin at the hit point
             const groundPoint = intersects[0].point;
-            coin.position.set(groundPoint.x, groundPoint.y + 30, groundPoint.z); // Slightly above the ground
+            coin.position.set(groundPoint.x, groundPoint.y + 30 * scaleFactor, groundPoint.z); // Slightly above the ground
             positioned = true; // Successful positioning
         }
     }
@@ -844,7 +847,7 @@ function render() {
 
             if (!isOnGround) verticalVelocity += gravity * delta;
 
-            if (kart.position.y <= groundHeight + 0.5) {
+            if (kart.position.y <= groundHeight + 0.5 * scaleFactor) {
                 if (!isOnGround) {
                     verticalVelocity = Math.abs(verticalVelocity) * 0.5;
                     isLanding = true;
@@ -895,7 +898,7 @@ function render() {
 
         if (kart && startTime !== null) {
             const kartX = kart.position.x, kartZ = kart.position.z;
-            if (kartX >= -100 && kartX <= 100 && kartZ <= 0 && oldZ > 0) { // always same finish condition now
+            if (kartX >= -100 * scaleFactor && kartX <= 100 * scaleFactor && kartZ <= 0 && oldZ > 0) { // always same finish condition now
                 finishTime = (performance.now() - startTime) / 1000;
                 if (finishTime > 20) {
                     finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
@@ -906,7 +909,7 @@ function render() {
             }
         }
 
-        if (kart.position.y < -1000) {
+        if (kart.position.y < -1000 * scaleFactor   ) {
             showGameOver();
             return;
         }
