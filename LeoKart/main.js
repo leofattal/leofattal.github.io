@@ -18,7 +18,7 @@ let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
-let scaleFactor = 0.1;
+let scaleFactor = 0.03;
 const acceleration = 0.02 * scaleFactor, deceleration = 0.01 * scaleFactor, maxSpeed = 3.5 * scaleFactor, friction = 0.005 * scaleFactor, turnSpeed = 0.03, gravity = -2 * scaleFactor;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
@@ -33,6 +33,8 @@ let vrButton;
 // VR controller variables
 let vrControllers = [];
 let controllerGrips = [];
+// Add a world container for VR mode
+let worldContainer;
 
 
 
@@ -530,6 +532,10 @@ function init() {
         'assets/skybox/bottom.jpg', 'assets/skybox/front.jpg', 'assets/skybox/back.jpg'
     ]);
 
+    // Create a world container for VR mode
+    worldContainer = new THREE.Group();
+    scene.add(worldContainer);
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     camera.position.set(0, 10000 * scaleFactor, 10000 * scaleFactor);
 
@@ -573,7 +579,7 @@ function init() {
 function loadTrack(callback) {
     leaderboardDiv.style.display = 'block';
     fetchLeaderboard(trackId);
-    if (track) scene.remove(track); // Remove the existing track if it exists
+    if (track) worldContainer.remove(track); // Modified to use worldContainer
 
     // Load the configuration for the given track ID
     const configPath = `trackConfigs/track_${trackId}.json`;
@@ -602,7 +608,7 @@ function loadTrack(callback) {
                     track.rotation.set(...config.rotation.map(deg => THREE.MathUtils.degToRad(deg))); // Convert degrees to radians
                 }
 
-                scene.add(track);
+                worldContainer.add(track); // Modified to use worldContainer
                 console.log(`Track ${trackId} loaded successfully!`);
 
                 if (typeof callback === "function") {
@@ -615,14 +621,20 @@ function loadTrack(callback) {
 
 function loadModels() {
     if (kart) scene.remove(kart);
-    if (coin) scene.remove(coin);
-    if (donut) scene.remove(donut);
+    if (coin) worldContainer.remove(coin); // Modified to use worldContainer
+    if (donut) worldContainer.remove(donut); // Modified to use worldContainer
     const loader = new THREE.GLTFLoader();
     loader.load('assets/kart/scene.gltf', gltf => {
         kart = gltf.scene;
         kart.scale.set(0.5 * scaleFactor, 0.5 * scaleFactor, 0.5 * scaleFactor);
         kart.add(camera);
-        kart.position.set(0, 0, 0);
+        // In non-VR mode, position is set to 0,0,0 and kart moves through world
+        if (!isVRMode) {
+            kart.position.set(0, 0, 0);
+        } else {
+            // In VR mode, kart stays in front of user
+            kart.position.set(0, 0, -3);
+        }
         scene.add(kart);
 
         // Initial camera position (far away)
@@ -659,7 +671,7 @@ function loadModels() {
         donut.scale.set(200 * scaleFactor, 200 * scaleFactor, 200 * scaleFactor);
         donut.rotateZ(Math.PI / 2);
         donut.position.set(280 * scaleFactor, 300 * scaleFactor, 2700 * scaleFactor);
-        scene.add(donut);
+        worldContainer.add(donut); // Modified to use worldContainer
         obstacleBoxes.push(new THREE.Box3().setFromObject(donut));
     });
 
@@ -667,8 +679,8 @@ function loadModels() {
         coin = gltf.scene;
         coin.scale.set(10 * scaleFactor, 10 * scaleFactor, 10 * scaleFactor);
         // Position the coin 200 units away from the kart in the "direction" vector
-        coin.position.set(0, 30 * scaleFactor, -200 * scaleFactor   ); // Add offset to kart's position
-        scene.add(coin);
+        coin.position.set(0, 30 * scaleFactor, -200 * scaleFactor); // Add offset to kart's position
+        worldContainer.add(coin); // Modified to use worldContainer
         obstacleBoxes.push(new THREE.Box3().setFromObject(coin));
     });
 }
@@ -792,6 +804,11 @@ function render() {
         if (velocity === 0 || (!isOnGround && !isLanding)) gainNode.gain.value = 0;
     }
 
+    // Check for X button press in VR mode
+    if (isVRMode) {
+        checkXButtonState();
+    }
+
     if (kart) {
         oldZ = kart.position.z;
         if ((keyboard['ArrowUp'] || joystickState.up) && isOnGround) velocity = Math.min(velocity + acceleration * delta / .008, maxSpeed);
@@ -885,46 +902,80 @@ function render() {
 
         if (!isOnGround) verticalVelocity += gravity * delta;
 
-        if (obstacleNormal) {
-            const velocityVector = direction.clone().multiplyScalar(velocity);
-            const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
-            const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
-            kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
+        // Handle movement differently for VR vs non-VR mode
+        if (isVRMode && camera.userData.vrMode) {
+            // In VR mode, move the world container instead of the kart
+            if (obstacleNormal) {
+                const velocityVector = direction.clone().multiplyScalar(velocity);
+                const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
+                const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
+                worldContainer.position.sub(tangentialVelocity.multiplyScalar(delta / 0.008));
+            } else {
+                worldContainer.position.sub(direction.clone().multiplyScalar(velocity * delta / 0.008));
+            }
+            worldContainer.position.y -= verticalVelocity * delta / .008;
         } else {
-            kart.position.addScaledVector(direction, velocity * delta / 0.008);
+            // Non-VR mode - move the kart as before
+            if (obstacleNormal) {
+                const velocityVector = direction.clone().multiplyScalar(velocity);
+                const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
+                const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
+                kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
+            } else {
+                kart.position.addScaledVector(direction, velocity * delta / 0.008);
+            }
+            kart.position.y += verticalVelocity * delta / .008;
         }
-        kart.position.y += verticalVelocity * delta / .008;
-        // console.log(kart.position, direction);
 
+        // Check for finish line crossing - this needs to be inverted for VR mode
         if (kart && startTime !== null) {
-            const kartX = kart.position.x, kartZ = kart.position.z;
-            if (kartX >= -100 * scaleFactor && kartX <= 100 * scaleFactor && kartZ <= 0 && oldZ > 0) { // always same finish condition now
-                finishTime = (performance.now() - startTime) / 1000;
-                if (finishTime > 20) {
-                    finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
-                    finishSound.play();
-                    saveBestTime();
-                    startTime = performance.now();
+            let kartX, kartZ;
+
+            if (isVRMode && camera.userData.vrMode) {
+                // In VR mode, use the negative of the world container position
+                kartX = -worldContainer.position.x;
+                kartZ = -worldContainer.position.z;
+                // For oldZ comparison, get the previous Z position
+                if (kartZ <= 0 && oldZ > 0) {
+                    finishTime = (performance.now() - startTime) / 1000;
+                    if (finishTime > 20) {
+                        finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
+                        finishSound.play();
+                        saveBestTime();
+                        startTime = performance.now();
+                    }
+                }
+            } else {
+                // Non-VR mode - use kart position directly
+                kartX = kart.position.x;
+                kartZ = kart.position.z;
+                if (kartX >= -100 * scaleFactor && kartX <= 100 * scaleFactor && kartZ <= 0 && oldZ > 0) {
+                    finishTime = (performance.now() - startTime) / 1000;
+                    if (finishTime > 20) {
+                        finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
+                        finishSound.play();
+                        saveBestTime();
+                        startTime = performance.now();
+                    }
                 }
             }
         }
 
-        if (kart.position.y < -1000 * scaleFactor   ) {
-            showGameOver();
-            return;
+        // Check for falling off the track - different for VR vs non-VR
+        if (isVRMode && camera.userData.vrMode) {
+            if (worldContainer.position.y > 1000 * scaleFactor) {
+                showGameOver();
+                return;
+            }
+        } else {
+            if (kart.position.y < -1000 * scaleFactor) {
+                showGameOver();
+                return;
+            }
         }
 
         // Check collision with coin
         checkCoinCollision();
-
-        // For VR mode, keep the kart in front of the user but at the same height as the track
-        if (isVRMode && camera.userData.vrMode) {
-            // Only have the kart follow the player in XZ plane (not Y)
-            // This maintains the kart's height based on the track
-
-            // When in VR, velocity should move the kart relative to its own orientation
-            // not relative to the camera orientation
-        }
     }
 
     renderer.render(scene, camera);
@@ -1059,6 +1110,9 @@ function setupVRButton() {
         isVRMode = true;
         vrToggle.textContent = 'Exit VR';
 
+        // Reset world container position when entering VR
+        worldContainer.position.set(0, 0, 0);
+
         // Adjust kart positioning for VR view
         if (kart) {
             // Store reference to original parent of camera (the kart)
@@ -1077,8 +1131,9 @@ function setupVRButton() {
             // In WebXR, the initial position is typically (0,0,0) facing negative Z
             kart.position.set(0, 0, -3); // Position kart 3 units in front of the user
 
-            // Rotate kart to face away from the user (toward negative Z)
-            kart.rotation.y = Math.PI; // 180 degrees
+            // Now change the rotation so we see the rear of the kart
+            // 0 degrees means kart is facing toward the user (+Z direction)
+            kart.rotation.y = 0; // Face toward the user so we see the rear
         }
 
         // Hide UI elements in VR mode
@@ -1137,12 +1192,37 @@ function setupVRControllers() {
     console.log("VR controllers initialized");
 }
 
+// Function to check X button state on left controller
+function checkXButtonState() {
+    const session = renderer.xr.getSession();
+    if (!session) return;
+
+    for (const source of session.inputSources) {
+        // Check if it's a gamepad
+        if (source.gamepad && source.handedness === 'left') {
+            // X button is typically button 3 on Oculus Touch controllers
+            // or button 2 on some other controllers
+            // We'll check both to be safe
+            const xButton = source.gamepad.buttons[4] || source.gamepad.buttons[2];
+
+            if (xButton && xButton.pressed) {
+                // X button is pressed - accelerate like the right trigger would
+                joystickState.up = true;
+            } else if (joystickState.up && !vrControllers[1]?.userData.triggerPressed) {
+                // Only reset if trigger on right controller isn't also pressed
+                joystickState.up = false;
+            }
+        }
+    }
+}
+
 // VR controller event handlers
 function onVRTriggerStart(event) {
     const controller = event.target;
     // Accelerate with right controller trigger
     if (controller.userData.index === 1) {
         joystickState.up = true;
+        controller.userData.triggerPressed = true;
     }
 }
 
@@ -1150,7 +1230,26 @@ function onVRTriggerEnd(event) {
     const controller = event.target;
     // Stop acceleration with right controller trigger
     if (controller.userData.index === 1) {
-        joystickState.up = false;
+        controller.userData.triggerPressed = false;
+        // Only stop if X button isn't also pressed
+        const session = renderer.xr.getSession();
+        if (session) {
+            let xButtonPressed = false;
+            for (const source of session.inputSources) {
+                if (source.gamepad && source.handedness === 'left') {
+                    const xButton = source.gamepad.buttons[3] || source.gamepad.buttons[2];
+                    if (xButton && xButton.pressed) {
+                        xButtonPressed = true;
+                        break;
+                    }
+                }
+            }
+            if (!xButtonPressed) {
+                joystickState.up = false;
+            }
+        } else {
+            joystickState.up = false;
+        }
     }
 }
 
