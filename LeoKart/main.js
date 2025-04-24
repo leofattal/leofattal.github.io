@@ -819,6 +819,7 @@ function render() {
         }
 
         steer = 0;
+        // Restore original velocity check
         if ((keyboard['ArrowLeft'] || joystickState.left) && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
         if ((keyboard['ArrowRight'] || joystickState.right) && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
 
@@ -853,12 +854,41 @@ function render() {
 
             if (isOnGround || isLanding) {
                 const pitchQuaternion = getQuaternionFromVectors(up, roadNormal);
-                kart.quaternion.premultiply(pitchQuaternion);
-                const forward = direction.clone().applyQuaternion(pitchQuaternion);
-                up = roadNormal.clone();
-                const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(up, steer);
-                kart.quaternion.premultiply(yawQuaternion);
-                direction = forward.applyAxisAngle(up, steer);
+
+                // Different handling for VR mode vs non-VR mode
+                if (isVRMode && camera.userData.vrMode) {
+                    // For VR, manually apply rotation to worldContainer rather than kart
+                    up = roadNormal.clone();
+                    const forward = direction.clone().applyQuaternion(pitchQuaternion);
+
+                    // Apply steering - this is key for VR steering to work
+                    if (steer !== 0) {
+                        // Get camera position
+                        const cameraPosition = new THREE.Vector3();
+                        camera.getWorldPosition(cameraPosition);
+
+                        // Rotate world around camera position
+                        const yawMatrix = new THREE.Matrix4().makeRotationAxis(up, -steer);
+                        worldContainer.position.sub(cameraPosition);
+                        worldContainer.position.applyMatrix4(yawMatrix);
+                        worldContainer.position.add(cameraPosition);
+                        worldContainer.rotation.y += -steer;
+
+                        // Update direction vector
+                        direction = forward.applyAxisAngle(up, steer);
+                    } else {
+                        direction = forward;
+                    }
+                } else {
+                    // Non-VR mode - original behavior
+                    kart.quaternion.premultiply(pitchQuaternion);
+                    const forward = direction.clone().applyQuaternion(pitchQuaternion);
+                    up = roadNormal.clone();
+                    const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(up, steer);
+                    kart.quaternion.premultiply(yawQuaternion);
+                    direction = forward.applyAxisAngle(up, steer);
+                }
+
                 right = new THREE.Vector3().crossVectors(direction, up).normalize();
             }
 
@@ -1144,8 +1174,117 @@ function setupVRButton() {
     }
 }
 
-// Initialize VR controllers
+// Function to check X button state on left controller
+function checkXButtonState() {
+    const session = renderer.xr.getSession();
+    if (!session) return;
+
+    let leftTriggerPressed = false;
+    let rightTriggerPressed = false;
+
+    for (const source of session.inputSources) {
+        // Check if it's a gamepad
+        if (source.gamepad && source.handedness === 'left') {
+            // X button is at index 4 as per user feedback
+            const xButton = source.gamepad.buttons[4] || source.gamepad.buttons[2];
+
+            if (xButton && xButton.pressed) {
+                // X button is pressed - accelerate
+                joystickState.up = true;
+            } else {
+                // X button is released - stop accelerating
+                joystickState.up = false;
+            }
+        }
+
+        // Also check right controller buttons directly via gamepad API
+        if (source.gamepad && source.handedness === 'right') {
+            // Trigger is typically button 0
+            if (source.gamepad.buttons[0] && source.gamepad.buttons[0].pressed) {
+                joystickState.left = true;
+                leftTriggerPressed = true;
+                console.log("Right controller trigger pressed - TURNING LEFT");
+
+                // DIRECT TURNING - around kart position
+                if (worldContainer && isVRMode && kart) {
+                    // Use kart position as the rotation center
+                    const kartPosition = new THREE.Vector3();
+                    kart.getWorldPosition(kartPosition);
+
+                    // Apply a fixed rotation amount (INVERTED: negative for LEFT turn)
+                    const rotationAmount = -0.02; // Small fixed rotation per frame
+
+                    // Translate world to origin relative to kart, rotate, and translate back
+                    worldContainer.position.sub(kartPosition); // Move to origin relative to kart
+                    worldContainer.rotation.y += rotationAmount; // Rotate
+
+                    // Apply rotation to the position vector
+                    const rotationMatrix = new THREE.Matrix4().makeRotationY(rotationAmount);
+                    worldContainer.position.applyMatrix4(rotationMatrix);
+
+                    worldContainer.position.add(kartPosition); // Move back to kart-relative position
+
+                    console.log("Rotating world container LEFT around kart by", rotationAmount);
+                }
+            } else {
+                joystickState.left = false;
+            }
+
+            // Grip is typically button 1
+            if (source.gamepad.buttons[1] && source.gamepad.buttons[1].pressed) {
+                joystickState.right = true;
+                rightTriggerPressed = true;
+                console.log("Right controller grip pressed - TURNING RIGHT");
+
+                // DIRECT TURNING - around kart position
+                if (worldContainer && isVRMode && kart) {
+                    // Use kart position as the rotation center
+                    const kartPosition = new THREE.Vector3();
+                    kart.getWorldPosition(kartPosition);
+
+                    // Apply a fixed rotation amount (INVERTED: positive for RIGHT turn)
+                    const rotationAmount = 0.02; // Small fixed rotation per frame
+
+                    // Translate world to origin relative to kart, rotate, and translate back
+                    worldContainer.position.sub(kartPosition); // Move to origin relative to kart
+                    worldContainer.rotation.y += rotationAmount; // Rotate
+
+                    // Apply rotation to the position vector
+                    const rotationMatrix = new THREE.Matrix4().makeRotationY(rotationAmount);
+                    worldContainer.position.applyMatrix4(rotationMatrix);
+
+                    worldContainer.position.add(kartPosition); // Move back to kart-relative position
+
+                    console.log("Rotating world container RIGHT around kart by", rotationAmount);
+                }
+            } else {
+                joystickState.right = false;
+            }
+        }
+    }
+
+    // Log overall state for debugging
+    if (leftTriggerPressed || rightTriggerPressed) {
+        console.log("VR Turning state:", {
+            leftTrigger: leftTriggerPressed,
+            rightTrigger: rightTriggerPressed,
+            joystickStateLeft: joystickState.left,
+            joystickStateRight: joystickState.right,
+            velocity: velocity,
+            steer: steer,
+            isWorldContainerValid: !!worldContainer,
+            worldRotation: worldContainer ? worldContainer.rotation.y : "N/A",
+            cameraPosition: camera ? `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}` : "N/A",
+            kartPosition: kart ? `${kart.position.x.toFixed(2)}, ${kart.position.y.toFixed(2)}, ${kart.position.z.toFixed(2)}` : "N/A",
+            worldPosition: worldContainer ? `${worldContainer.position.x.toFixed(2)}, ${worldContainer.position.y.toFixed(2)}, ${worldContainer.position.z.toFixed(2)}` : "N/A"
+        });
+    }
+}
+
+// Initialize VR controllers with more robust debugging
 function setupVRControllers() {
+    console.log("Setting up VR controllers...");
+
     // Controller models - check if XRControllerModelFactory is available
     let controllerModelFactory;
 
@@ -1160,6 +1299,20 @@ function setupVRControllers() {
     for (let i = 0; i < 2; i++) {
         // Controller
         const controller = renderer.xr.getController(i);
+
+        // Add debug logging to controller events
+        controller.addEventListener('connected', (event) => {
+            console.log(`Controller ${i} connected, handedness: ${event.data.handedness}`);
+            if (event.data.gamepad) {
+                console.log(`Controller has gamepad with ${event.data.gamepad.buttons.length} buttons and ${event.data.gamepad.axes.length} axes`);
+            }
+        });
+
+        controller.addEventListener('disconnected', () => {
+            console.log(`Controller ${i} disconnected`);
+        });
+
+        // Keep these event listeners for compatibility, but we'll rely on direct gamepad polling
         controller.addEventListener('selectstart', onVRTriggerStart);
         controller.addEventListener('selectend', onVRTriggerEnd);
         controller.addEventListener('squeezestart', onVRGripStart);
@@ -1190,82 +1343,59 @@ function setupVRControllers() {
     }
 
     console.log("VR controllers initialized");
-}
 
-// Function to check X button state on left controller
-function checkXButtonState() {
+    // Log session and inputSources for debugging
     const session = renderer.xr.getSession();
-    if (!session) return;
-
-    for (const source of session.inputSources) {
-        // Check if it's a gamepad
-        if (source.gamepad && source.handedness === 'left') {
-            // X button is typically button 3 on Oculus Touch controllers
-            // or button 2 on some other controllers
-            // We'll check both to be safe
-            const xButton = source.gamepad.buttons[4] || source.gamepad.buttons[2];
-
-            if (xButton && xButton.pressed) {
-                // X button is pressed - accelerate like the right trigger would
-                joystickState.up = true;
-            } else if (joystickState.up && !vrControllers[1]?.userData.triggerPressed) {
-                // Only reset if trigger on right controller isn't also pressed
-                joystickState.up = false;
-            }
+    if (session) {
+        console.log("XR Session found:", session);
+        if (session.inputSources) {
+            console.log(`${session.inputSources.length} input sources available`);
+            session.inputSources.forEach((source, index) => {
+                console.log(`Input source ${index}:`, source.handedness,
+                    source.gamepad ? `has gamepad with ${source.gamepad.buttons.length} buttons` : 'no gamepad');
+            });
         }
     }
 }
 
-// VR controller event handlers
+// VR controller event handlers (keeping these for compatibility)
 function onVRTriggerStart(event) {
     const controller = event.target;
-    // Accelerate with right controller trigger
+    console.log(`Controller ${controller.userData.index} trigger pressed`);
+    // Right controller trigger now turns left
     if (controller.userData.index === 1) {
-        joystickState.up = true;
         controller.userData.triggerPressed = true;
+        joystickState.left = true;
     }
 }
 
 function onVRTriggerEnd(event) {
     const controller = event.target;
-    // Stop acceleration with right controller trigger
+    console.log(`Controller ${controller.userData.index} trigger released`);
+    // Stop turning left when right controller trigger is released
     if (controller.userData.index === 1) {
         controller.userData.triggerPressed = false;
-        // Only stop if X button isn't also pressed
-        const session = renderer.xr.getSession();
-        if (session) {
-            let xButtonPressed = false;
-            for (const source of session.inputSources) {
-                if (source.gamepad && source.handedness === 'left') {
-                    const xButton = source.gamepad.buttons[3] || source.gamepad.buttons[2];
-                    if (xButton && xButton.pressed) {
-                        xButtonPressed = true;
-                        break;
-                    }
-                }
-            }
-            if (!xButtonPressed) {
-                joystickState.up = false;
-            }
-        } else {
-            joystickState.up = false;
-        }
+        joystickState.left = false;
     }
 }
 
 function onVRGripStart(event) {
     const controller = event.target;
-    // Brake with right controller grip
+    console.log(`Controller ${controller.userData.index} grip pressed`);
+    // Right controller grip now turns right
     if (controller.userData.index === 1) {
-        joystickState.down = true;
+        controller.userData.gripPressed = true;
+        joystickState.right = true;
     }
 }
 
 function onVRGripEnd(event) {
     const controller = event.target;
-    // Stop braking with right controller grip
+    console.log(`Controller ${controller.userData.index} grip released`);
+    // Stop turning right when right controller grip is released
     if (controller.userData.index === 1) {
-        joystickState.down = false;
+        controller.userData.gripPressed = false;
+        joystickState.right = false;
     }
 }
 
