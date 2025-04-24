@@ -1183,6 +1183,13 @@ function checkXButtonState() {
     let rightTriggerPressed = false;
 
     for (const source of session.inputSources) {
+        // Add comprehensive button logging to identify correct indices
+        if (source.gamepad && (performance.now() % 100 < 10)) { // Log every ~100ms
+            console.log(`Controller ${source.handedness} buttons:`,
+                source.gamepad.buttons.map((btn, idx) =>
+                    btn.pressed ? `Button ${idx}: PRESSED (value: ${btn.value.toFixed(2)})` : ''));
+        }
+
         // Check if it's a gamepad
         if (source.gamepad && source.handedness === 'left') {
             // X button is at index 4 as per user feedback
@@ -1199,8 +1206,19 @@ function checkXButtonState() {
 
         // Also check right controller buttons directly via gamepad API
         if (source.gamepad && source.handedness === 'right') {
-            // Trigger is typically button 0
-            if (source.gamepad.buttons[0] && source.gamepad.buttons[0].pressed) {
+            // Try multiple possible trigger button indices (0, 2, 3, 4)
+            const possibleTriggerIndices = [0, 2, 3, 4];
+            let triggerPressed = false;
+
+            for (const idx of possibleTriggerIndices) {
+                if (source.gamepad.buttons[idx] && source.gamepad.buttons[idx].pressed) {
+                    triggerPressed = true;
+                    console.log(`Right controller button ${idx} pressed - Using as TRIGGER/TURN LEFT`);
+                    break;
+                }
+            }
+
+            if (triggerPressed) {
                 joystickState.left = true;
                 leftTriggerPressed = true;
                 console.log("Right controller trigger pressed - TURNING LEFT");
@@ -1305,18 +1323,62 @@ function setupVRControllers() {
             console.log(`Controller ${i} connected, handedness: ${event.data.handedness}`);
             if (event.data.gamepad) {
                 console.log(`Controller has gamepad with ${event.data.gamepad.buttons.length} buttons and ${event.data.gamepad.axes.length} axes`);
+
+                // Log initial button state
+                console.log("Initial button state:",
+                    event.data.gamepad.buttons.map((b, idx) =>
+                        `Button ${idx}: ${b.pressed ? 'PRESSED' : 'not pressed'} (${b.value.toFixed(2)})`).join(', '));
             }
+
+            // Store button mapping information for this controller
+            controller.userData.handedness = event.data.handedness;
+            controller.userData.buttonCount = event.data.gamepad ? event.data.gamepad.buttons.length : 0;
         });
 
         controller.addEventListener('disconnected', () => {
             console.log(`Controller ${i} disconnected`);
         });
 
-        // Keep these event listeners for compatibility, but we'll rely on direct gamepad polling
-        controller.addEventListener('selectstart', onVRTriggerStart);
-        controller.addEventListener('selectend', onVRTriggerEnd);
-        controller.addEventListener('squeezestart', onVRGripStart);
-        controller.addEventListener('squeezeend', onVRGripEnd);
+        // Add handlers for all supported event types
+        const eventTypes = [
+            'selectstart', 'selectend',
+            'squeezestart', 'squeezeend',
+            'buttondown', 'buttonup',
+            'axischanged'
+        ];
+
+        eventTypes.forEach(eventType => {
+            controller.addEventListener(eventType, (event) => {
+                console.log(`Controller ${i} event: ${eventType}`, event);
+
+                // For button events, try to identify which button triggered it
+                if (eventType === 'buttondown' || eventType === 'buttonup') {
+                    const session = renderer.xr.getSession();
+                    if (session && session.inputSources && session.inputSources[i] && session.inputSources[i].gamepad) {
+                        const gamepad = session.inputSources[i].gamepad;
+                        console.log(`Button state at ${eventType}:`,
+                            gamepad.buttons.map((b, idx) =>
+                                `Button ${idx}: ${b.pressed ? 'PRESSED' : 'not pressed'} (${b.value.toFixed(2)})`).join(', '));
+                    }
+                }
+
+                // Implement control logic based on events
+                if (eventType === 'selectstart' && controller.userData.handedness === 'right') {
+                    joystickState.left = true;
+                    console.log("Right controller select started - turning LEFT");
+                } else if (eventType === 'selectend' && controller.userData.handedness === 'right') {
+                    joystickState.left = false;
+                    console.log("Right controller select ended - stopped turning LEFT");
+                } else if (eventType === 'squeezestart' && controller.userData.handedness === 'right') {
+                    joystickState.right = true;
+                    console.log("Right controller squeeze started - turning RIGHT");
+                } else if (eventType === 'squeezeend' && controller.userData.handedness === 'right') {
+                    joystickState.right = false;
+                    console.log("Right controller squeeze ended - stopped turning RIGHT");
+                }
+            });
+        });
+
         controller.userData.index = i; // Left (0) or right (1) controller
 
         // Add a simple visual for the controller if no model factory is available
@@ -1353,49 +1415,32 @@ function setupVRControllers() {
             session.inputSources.forEach((source, index) => {
                 console.log(`Input source ${index}:`, source.handedness,
                     source.gamepad ? `has gamepad with ${source.gamepad.buttons.length} buttons` : 'no gamepad');
+
+                // Log initial button state if available
+                if (source.gamepad) {
+                    console.log(`Initial button state for ${source.handedness}:`,
+                        source.gamepad.buttons.map((b, idx) =>
+                            `Button ${idx}: ${b.pressed ? 'PRESSED' : 'not pressed'} (${b.value.toFixed(2)})`).join(', '));
+                }
             });
         }
-    }
-}
 
-// VR controller event handlers (keeping these for compatibility)
-function onVRTriggerStart(event) {
-    const controller = event.target;
-    console.log(`Controller ${controller.userData.index} trigger pressed`);
-    // Right controller trigger now turns left
-    if (controller.userData.index === 1) {
-        controller.userData.triggerPressed = true;
-        joystickState.left = true;
-    }
-}
+        // Try to select all available XR input profiles to help with debugging
+        session.addEventListener('inputsourceschange', (event) => {
+            console.log('Input sources changed:', {
+                added: event.added ? event.added.length : 0,
+                removed: event.removed ? event.removed.length : 0
+            });
 
-function onVRTriggerEnd(event) {
-    const controller = event.target;
-    console.log(`Controller ${controller.userData.index} trigger released`);
-    // Stop turning left when right controller trigger is released
-    if (controller.userData.index === 1) {
-        controller.userData.triggerPressed = false;
-        joystickState.left = false;
-    }
-}
-
-function onVRGripStart(event) {
-    const controller = event.target;
-    console.log(`Controller ${controller.userData.index} grip pressed`);
-    // Right controller grip now turns right
-    if (controller.userData.index === 1) {
-        controller.userData.gripPressed = true;
-        joystickState.right = true;
-    }
-}
-
-function onVRGripEnd(event) {
-    const controller = event.target;
-    console.log(`Controller ${controller.userData.index} grip released`);
-    // Stop turning right when right controller grip is released
-    if (controller.userData.index === 1) {
-        controller.userData.gripPressed = false;
-        joystickState.right = false;
+            if (event.added) {
+                event.added.forEach(source => {
+                    console.log(`New input source:`,
+                        source.handedness,
+                        source.profiles,
+                        source.gamepad ? `has gamepad with ${source.gamepad.buttons.length} buttons` : 'no gamepad');
+                });
+            }
+        });
     }
 }
 
