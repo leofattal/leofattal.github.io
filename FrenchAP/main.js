@@ -150,13 +150,59 @@ async function loadUserInterface(user) {
 
     // Add event listeners for module navigation
     setupModuleNavigation();
-
-    // Setup exercise interaction
-    setupExerciseInteraction();
 }
 
 // Module navigation
-function setupModuleNavigation() {
+async function setupModuleNavigation() {
+    try {
+        // First try to fetch lessons from Supabase
+        const { data: lessons, error } = await supabase
+            .from('lessons')
+            .select('id, title')
+            .order('id');
+
+        if (error || !lessons || lessons.length === 0) {
+            console.log("Could not fetch lessons from Supabase or no lessons found. Using mock data.");
+            setupMockModuleNavigation();
+            return;
+        }
+
+        // Clear existing module list
+        moduleList.innerHTML = '';
+
+        // Add lessons to module list
+        lessons.forEach((lesson, index) => {
+            const li = document.createElement('li');
+            li.textContent = lesson.title;
+            li.dataset.module = lesson.id;
+
+            if (index === 0) {
+                li.classList.add('active');
+                loadLesson(lesson.id);
+            }
+
+            li.addEventListener('click', () => {
+                // Remove active class from all items
+                moduleList.querySelectorAll('li').forEach(i => i.classList.remove('active'));
+
+                // Add active class to clicked item
+                li.classList.add('active');
+
+                // Load lesson content
+                loadLesson(lesson.id);
+            });
+
+            moduleList.appendChild(li);
+        });
+    } catch (e) {
+        console.error("Error setting up module navigation:", e);
+        // Fallback to mock data
+        setupMockModuleNavigation();
+    }
+}
+
+// Fallback to mock module navigation if Supabase fetch fails
+function setupMockModuleNavigation() {
     moduleItems.forEach(item => {
         item.addEventListener('click', () => {
             // Remove active class from all items
@@ -166,17 +212,108 @@ function setupModuleNavigation() {
             item.classList.add('active');
 
             // Update content based on selected module
-            // For now, we'll just update the title - in the future this would load from Supabase
             const moduleId = item.dataset.module;
             lessonTitle.textContent = item.textContent;
 
-            // Mock updating lesson content (would fetch from DB in real implementation)
+            // Mock updating lesson content
             updateMockLessonContent(moduleId);
         });
     });
 }
 
-// Mock function to update lesson content based on selected module
+// Function to load lesson content from Supabase
+async function loadLesson(lessonId) {
+    try {
+        // Fetch lesson content
+        const { data: lesson, error } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('id', lessonId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching lesson:', error);
+            lessonContent.innerHTML = '<p>Error loading lesson content.</p>';
+            return;
+        }
+
+        // Update lesson title and content
+        lessonTitle.textContent = lesson.title;
+        lessonContent.innerHTML = lesson.html_content;
+
+        // Fetch exercises for this lesson
+        loadExercises(lessonId);
+    } catch (e) {
+        console.error("Error loading lesson:", e);
+        lessonContent.innerHTML = '<p>Error loading lesson content.</p>';
+    }
+}
+
+// Function to load exercises for a lesson
+async function loadExercises(lessonId) {
+    try {
+        // Fetch exercises for this lesson
+        const { data: exercises, error } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('lesson_id', lessonId);
+
+        if (error || !exercises || exercises.length === 0) {
+            console.log("Could not fetch exercises or no exercises found for lesson:", lessonId);
+            // Use mock exercises if needed
+            return;
+        }
+
+        // Clear existing exercises
+        exercisesContainer.innerHTML = '<h3>Exercices</h3>';
+
+        // Add exercises to container
+        exercises.forEach(exercise => {
+            const exerciseDiv = document.createElement('div');
+            exerciseDiv.className = 'exercise';
+            exerciseDiv.dataset.id = exercise.id;
+
+            const promptDiv = document.createElement('div');
+            promptDiv.className = 'exercise-prompt';
+            promptDiv.innerHTML = `<p><strong>Exercise:</strong> ${exercise.prompt}</p>`;
+
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'exercise-response';
+
+            if (exercise.question_type === 'text') {
+                responseDiv.innerHTML = `
+                    <textarea placeholder="Tapez votre réponse ici..."></textarea>
+                    <button class="submit-btn" data-exercise="${exercise.id}">Soumettre</button>
+                `;
+            } else if (exercise.question_type === 'audio') {
+                responseDiv.innerHTML = `
+                    <button class="record-btn">Enregistrer Audio</button>
+                    <div class="audio-player" style="display: none;">
+                        <audio controls></audio>
+                        <button class="submit-btn" data-exercise="${exercise.id}">Soumettre</button>
+                    </div>
+                `;
+            }
+
+            exerciseDiv.appendChild(promptDiv);
+            exerciseDiv.appendChild(responseDiv);
+            exercisesContainer.appendChild(exerciseDiv);
+        });
+
+        // Reattach event listeners
+        document.querySelectorAll('.record-btn').forEach(button => {
+            button.addEventListener('click', handleRecordButton);
+        });
+
+        document.querySelectorAll('.submit-btn').forEach(button => {
+            button.addEventListener('click', handleSubmitButton);
+        });
+    } catch (e) {
+        console.error("Error loading exercises:", e);
+    }
+}
+
+// Mock function to update lesson content based on selected module (fallback)
 function updateMockLessonContent(moduleId) {
     const mockContent = {
         '1': `
@@ -232,12 +369,12 @@ function updateMockLessonContent(moduleId) {
 // Setup exercise interaction
 function setupExerciseInteraction() {
     // Setup record buttons
-    recordButtons.forEach(button => {
+    document.querySelectorAll('.record-btn').forEach(button => {
         button.addEventListener('click', handleRecordButton);
     });
 
     // Setup submit buttons
-    submitButtons.forEach(button => {
+    document.querySelectorAll('.submit-btn').forEach(button => {
         button.addEventListener('click', handleSubmitButton);
     });
 }
@@ -264,37 +401,74 @@ function handleRecordButton(e) {
     }
 }
 
-function handleSubmitButton(e) {
+async function handleSubmitButton(e) {
     const button = e.target;
     const responseContainer = button.closest('.exercise-response');
     const textArea = responseContainer.querySelector('textarea');
+    const exerciseId = button.dataset.exercise;
 
-    if (textArea) {
-        // Text submission
-        const text = textArea.value.trim();
-        if (text) {
-            alert('Réponse soumise: ' + text);
+    if (!exerciseId) {
+        console.error("No exercise ID found for submission");
+        alert('Une erreur est survenue lors de la soumission.');
+        return;
+    }
 
-            // In a real implementation, we would submit to Supabase here
-            // For now, show a success message and clear the input
+    // Get current user
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert('Vous devez être connecté pour soumettre une réponse.');
+        return;
+    }
+
+    try {
+        if (textArea) {
+            // Text submission
+            const text = textArea.value.trim();
+            if (!text) {
+                alert('Veuillez entrer une réponse');
+                return;
+            }
+
+            // Try to save to Supabase submissions table
+            const { error } = await supabase
+                .from('submissions')
+                .insert([{
+                    exercise_id: exerciseId,
+                    user_id: session.user.id,
+                    answer: text,
+                    submitted_at: new Date().toISOString()
+                }]);
+
+            if (error) {
+                console.error("Error saving submission:", error);
+                alert('Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.');
+                return;
+            }
+
+            // Show success and clear input
+            alert('Réponse soumise avec succès!');
             textArea.value = '';
             button.textContent = 'Soumis!';
             setTimeout(() => {
                 button.textContent = 'Soumettre';
             }, 3000);
-        } else {
-            alert('Veuillez entrer une réponse');
-        }
-    } else {
-        // Audio submission
-        alert('Enregistrement audio soumis');
 
-        // Reset the audio player display
-        button.textContent = 'Soumis!';
-        setTimeout(() => {
-            button.textContent = 'Soumettre';
-            button.parentElement.style.display = 'none';
-        }, 3000);
+        } else {
+            // Audio submission (would need file handling in a real implementation)
+            alert('Enregistrement audio soumis');
+
+            // In a real implementation, we would upload the audio file here
+
+            // Reset the audio player display
+            button.textContent = 'Soumis!';
+            setTimeout(() => {
+                button.textContent = 'Soumettre';
+                button.parentElement.style.display = 'none';
+            }, 3000);
+        }
+    } catch (e) {
+        console.error("Error in submission handling:", e);
+        alert('Une erreur est survenue. Veuillez réessayer.');
     }
 }
 
