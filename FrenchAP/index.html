@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>French AP Platform</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <!-- Auth Container -->
+    <div id="auth-container">
+        <h1>Bienvenue à la plateforme French AP</h1>
+        <form id="auth-form">
+            <input type="email" id="email" placeholder="Email" required />
+            <input type="password" id="password" placeholder="Password" required />
+            <button type="submit" id="auth-button">Login / Signup</button>
+            <div id="auth-status"></div>
+            <div id="loading-indicator" style="display:none;">
+                <div class="loader"></div>
+                <p>Chargement...</p>
+            </div>
+        </form>
+        <div id="verification-message" style="display:none;">
+            <p>Veuillez vérifier votre e-mail pour confirmer votre compte.</p>
+            <p>Une fois confirmé, vous pourrez vous connecter.</p>
+        </div>
+    </div>
+
+    <!-- Main App Container (Hidden until login) -->
+    <div id="app-container" style="display:none;">
+        <header>
+            <h1>French AP Platform</h1>
+            <div id="user-info">
+                <span id="welcome-message"></span>
+                <button id="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <main>
+            <nav id="sidebar">
+                <h2>Modules</h2>
+                <ul id="module-list">
+                    <li class="active" data-module="1">Module 1: Introduction</li>
+                    <li data-module="2">Module 2: La Famille</li>
+                    <li data-module="3">Module 3: Les Loisirs</li>
+                    <li data-module="4">Module 4: La Vie Quotidienne</li>
+                </ul>
+            </nav>
+
+            <div id="content-area">
+                <div id="lesson-container">
+                    <h2 id="lesson-title">Module 1: Introduction à la langue française</h2>
+                    <div id="lesson-content">
+                        <p>Bienvenue au premier module de français AP! Dans cette leçon, nous allons explorer les bases
+                            de la langue française.</p>
+                        <p>Le français est une langue romane parlée par environ 300 millions de personnes dans le monde.
+                        </p>
+                        <h3>Vocabulaire essentiel</h3>
+                        <ul>
+                            <li>Bonjour - Hello</li>
+                            <li>Au revoir - Goodbye</li>
+                            <li>Merci - Thank you</li>
+                            <li>S'il vous plaît - Please</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="exercises-container">
+                    <h3>Exercices</h3>
+
+                    <div class="exercise">
+                        <div class="exercise-prompt">
+                            <p><strong>Exercise 1:</strong> Écrivez une brève introduction en français (3-4 phrases).
+                            </p>
+                        </div>
+                        <div class="exercise-response">
+                            <textarea placeholder="Tapez votre réponse ici..."></textarea>
+                            <button class="submit-btn">Soumettre</button>
+                        </div>
+                    </div>
+
+                    <div class="exercise">
+                        <div class="exercise-prompt">
+                            <p><strong>Exercise 2:</strong> Enregistrez-vous en disant "Bonjour, je m'appelle [votre
+                                nom]".</p>
+                        </div>
+                        <div class="exercise-response">
+                            <button class="record-btn">Enregistrer Audio</button>
+                            <div class="audio-player" style="display: none;">
+                                <audio controls></audio>
+                                <button class="submit-btn">Soumettre</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="supabase.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>
