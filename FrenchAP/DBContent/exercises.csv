@@ -1,0 +1,7 @@
+id,lesson_id,question_type,prompt,created_at
+101,1,text,"Présentez-vous en français. Utilisez 3-4 phrases.",2023-09-01T12:00:00.000Z
+102,1,audio,"Enregistrez-vous en disant 'Bonjour, je m'appelle [votre nom]'.",2023-09-01T12:00:00.000Z
+201,2,text,"Décrivez votre famille en utilisant au moins 5 termes de vocabulaire de la famille.",2023-09-08T12:00:00.000Z
+301,3,text,"Quels sont vos loisirs préférés? Expliquez pourquoi vous les aimez.",2023-09-15T12:00:00.000Z
+401,4,text,"Décrivez votre routine quotidienne en utilisant au moins 3 verbes pronominaux.",2023-09-22T12:00:00.000Z
+402,4,audio,"Enregistrez-vous en décrivant ce que vous faites chaque matin.",2023-09-22T12:00:00.000Z 

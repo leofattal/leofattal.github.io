@@ -172,6 +172,52 @@ main {
     padding-bottom: 10px;
 }
 
+/* Additional styles for lesson content */
+.lesson-section h2 {
+    color: #005bbb;
+    margin-top: 0;
+}
+
+.grammar-box,
+.example-box,
+.activity-box {
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 6px;
+}
+
+.grammar-box {
+    background-color: #f0f8ff;
+    border: 1px solid #b0d8ff;
+}
+
+.example-box {
+    background-color: #f7f7f7;
+    border: 1px solid #ddd;
+}
+
+.activity-box {
+    background-color: #fff8e6;
+    border: 1px solid #ffe0b0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+table th,
+table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+table th {
+    background-color: #f2f2f2;
+}
+
 /* Exercises */
 #exercises-container {
     background-color: white;
