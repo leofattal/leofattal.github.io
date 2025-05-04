@@ -35,20 +35,137 @@ const authStatus = document.getElementById('auth-status');
 const loadingIndicator = document.getElementById('loading-indicator');
 const verificationMessage = document.getElementById('verification-message');
 const authButton = document.getElementById('auth-button');
+const googleSignInButton = document.getElementById('google-signin-button');
 
 // Check if user is already logged in
 window.addEventListener('DOMContentLoaded', async () => {
     console.log("Application starting, checking for existing session...");
+    console.log("Current URL:", window.location.href);
     showLoading(true);
+
+    // Verify OAuth providers are configured
+    try {
+        // This endpoint only returns configured providers
+        const response = await fetch(`${supabase.supabaseUrl}/auth/v1/providers`, {
+            headers: {
+                'apikey': supabase.supabaseKey
+            }
+        });
+        const providers = await response.json();
+        console.log("Available OAuth providers:", providers);
+
+        // Check if Google is in the list
+        const googleEnabled = providers.some(provider => provider.id === 'google');
+        console.log("Google OAuth enabled:", googleEnabled);
+
+        if (!googleEnabled) {
+            console.warn("Google OAuth provider is not enabled in Supabase project!");
+        }
+    } catch (e) {
+        console.error("Error checking OAuth providers:", e);
+    }
+
+    // Check for an auth callback in the URL (from OAuth redirect)
+    const hasHashParams = window.location.hash.includes('access_token') ||
+        window.location.hash.includes('error');
+    const hasQueryParams = window.location.search.includes('code=') ||
+        window.location.search.includes('error');
+
+    if (hasHashParams || hasQueryParams) {
+        console.log("Detected auth callback in URL, processing...");
+        // The Supabase client will automatically handle the OAuth callback
+
+        // Store URL to handle redirects properly
+        const fullPath = window.location.href.split('?')[0].split('#')[0];
+        console.log("Saving redirect path:", fullPath);
+        localStorage.setItem('redirectPath', fullPath);
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     console.log("Auth session check result:", session ? "User logged in" : "No active session");
 
     if (session) {
+        console.log("Found active session, loading user interface", session.user.id);
         loadUserInterface(session.user);
+
+        // Check if we need to redirect after auth
+        if (window.location.href !== localStorage.getItem('redirectPath')) {
+            const redirectPath = localStorage.getItem('redirectPath');
+            if (redirectPath && redirectPath.includes('/FrenchAP')) {
+                console.log("Redirecting to saved path:", redirectPath);
+                window.location.href = redirectPath;
+                return;
+            }
+        }
     } else {
         showLoading(false);
+        // Initialize Google Sign-In
+        initializeGoogleSignIn();
     }
+
+    // Set up auth state change listener for OAuth redirects
+    supabase.auth.onAuthStateChange((event, session) => {
+        console.log("Auth state changed:", event, session ? "User session available" : "No session");
+
+        if (event === 'SIGNED_IN' && session) {
+            console.log("User signed in via OAuth redirect", session.user.id);
+            loadUserInterface(session.user);
+        } else if (event === 'SIGNED_OUT') {
+            console.log("User signed out");
+            appContainer.style.display = 'none';
+            authContainer.style.display = 'block';
+            showLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+            console.log("Session token refreshed", session.user.id);
+        } else if (event === 'USER_UPDATED' && session) {
+            console.log("User data updated", session.user.id);
+        }
+    });
 });
+
+// Initialize Google Sign-In button
+function initializeGoogleSignIn() {
+    // Create a custom Google sign-in button since we're using Supabase OAuth
+    const googleButton = document.createElement('button');
+    googleButton.type = 'button';
+    googleButton.className = 'google-signin-btn';
+    googleButton.innerHTML = '<img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">Continue with Google';
+
+    googleSignInButton.innerHTML = '';
+    googleSignInButton.appendChild(googleButton);
+
+    // Add click handler for Google sign-in
+    googleButton.addEventListener('click', async () => {
+        showLoading(true);
+        try {
+            // Get the full current URL path including /FrenchAP
+            const fullPath = window.location.href.split('?')[0].split('#')[0];
+            console.log("Setting redirect URL to:", fullPath);
+
+            // Use the default Supabase flow - it will handle the callback automatically
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    // After Supabase processes the callback, redirect to our app's full path
+                    redirectTo: fullPath
+                }
+            });
+
+            if (error) {
+                console.error("Error initiating Google sign-in:", error);
+                showAuthError('Failed to initialize Google sign-in: ' + error.message);
+                showLoading(false);
+            } else {
+                console.log("Google sign-in redirect initiated", data);
+                // Redirect will happen automatically
+            }
+        } catch (e) {
+            console.error("Exception during Google sign-in initialization:", e);
+            showAuthError('An error occurred during Google sign-in initialization.');
+            showLoading(false);
+        }
+    });
+}
 
 // Authentication handling
 authForm.addEventListener('submit', async (e) => {
@@ -66,11 +183,16 @@ authForm.addEventListener('submit', async (e) => {
         console.log("Login failed, attempting signup:", error.message);
 
         if (error.message.includes('Invalid login')) {
+            // Get the full current URL path for redirects
+            const fullPath = window.location.href.split('?')[0].split('#')[0];
+            console.log("Using redirect URL for signup:", fullPath);
+
             // If login fails, try to sign up
             const { data: signupData, error: signupError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
+                    emailRedirectTo: fullPath,
                     data: {
                         // Default role is student
                         role: 'student'
