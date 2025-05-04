@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>French AP Platform</title>
+    <title>ParlezPro AP | Excellence in French</title>
     <link rel="stylesheet" href="styles.css" />
     <!-- Google Sign-In libraries -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -16,7 +16,8 @@
         <div class="auth-banner">
             <img src="Assets/Eiffel-banner.png" alt="Eiffel Tower at sunset" class="banner-image">
             <div class="banner-overlay">
-                <h1>Bienvenue à la plateforme French AP</h1>
+                <h1>Bienvenue à ParlezPro AP</h1>
+                <p class="tagline">Votre voyage vers l'excellence en français</p>
             </div>
         </div>
         <div class="auth-form-container">
@@ -44,9 +45,12 @@
     <!-- Main App Container (Hidden until login) -->
     <div id="app-container" style="display:none;">
         <header>
-            <h1>French AP Platform</h1>
+            <h1>ParlezPro AP</h1>
             <div id="user-info">
-                <span id="welcome-message"></span>
+                <div class="user-profile">
+                    <img id="user-avatar" src="Assets/avatar.png" alt="User profile">
+                    <span id="welcome-message"></span>
+                </div>
                 <button id="logout-button">Logout</button>
             </div>
         </header>
@@ -66,7 +70,7 @@
                 <div id="lesson-container">
                     <h2 id="lesson-title">Module 1: Introduction à la langue française</h2>
                     <div id="lesson-content">
-                        <p>Bienvenue au premier module de français AP! Dans cette leçon, nous allons explorer les bases
+                        <p>Bienvenue au premier module de ParlezPro AP! Dans cette leçon, nous allons explorer les bases
                             de la langue française.</p>
                         <p>Le français est une langue romane parlée par environ 300 millions de personnes dans le monde.
                         </p>

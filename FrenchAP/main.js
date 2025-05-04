@@ -41,6 +41,16 @@ const googleSignInButton = document.getElementById('google-signin-button');
 window.addEventListener('DOMContentLoaded', async () => {
     console.log("Application starting, checking for existing session...");
     console.log("Current URL:", window.location.href);
+
+    // Add auth-mode class to body by default
+    document.body.classList.add('auth-mode');
+
+    // Store the current path for potential redirect after auth
+    if (window.location.pathname.includes('/FrenchAP')) {
+        localStorage.setItem('frenchAppUrl', window.location.href);
+        console.log("Saved return path:", window.location.pathname);
+    }
+
     showLoading(true);
 
     // Verify OAuth providers are configured
@@ -61,6 +71,16 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (!googleEnabled) {
             console.warn("Google OAuth provider is not enabled in Supabase project!");
         }
+
+        // Log the current URL for debugging redirect issues
+        console.log("Current app URL:", window.location.href);
+        console.log("Pathname:", window.location.pathname);
+        console.log("Origin:", window.location.origin);
+
+        // Print info about required Supabase configuration
+        console.info("IMPORTANT: For proper redirects, configure Supabase Site URL in the dashboard:");
+        console.info(`Site URL should be set to: ${window.location.origin}`);
+        console.info(`Add Redirect URL: ${window.location.href}`);
     } catch (e) {
         console.error("Error checking OAuth providers:", e);
     }
@@ -86,6 +106,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     if (session) {
         console.log("Found active session, loading user interface", session.user.id);
+        // Remove auth-mode class when logged in
+        document.body.classList.remove('auth-mode');
         loadUserInterface(session.user);
 
         // Check if we need to redirect after auth
@@ -108,12 +130,26 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.log("Auth state changed:", event, session ? "User session available" : "No session");
 
         if (event === 'SIGNED_IN' && session) {
-            console.log("User signed in via OAuth redirect", session.user.id);
+            console.log("User signed in", session.user.id);
+            // Remove auth-mode class when signed in
+            document.body.classList.remove('auth-mode');
             loadUserInterface(session.user);
+
+            // Check if we're at the root URL and need to redirect to the app
+            if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+                const savedAppUrl = localStorage.getItem('frenchAppUrl');
+                if (savedAppUrl && savedAppUrl.includes('/FrenchAP')) {
+                    console.log("Redirecting to saved app URL:", savedAppUrl);
+                    window.location.href = savedAppUrl;
+                    return;
+                }
+            }
         } else if (event === 'SIGNED_OUT') {
             console.log("User signed out");
             appContainer.style.display = 'none';
             authContainer.style.display = 'block';
+            // Add auth-mode class when signed out
+            document.body.classList.add('auth-mode');
             showLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && session) {
             console.log("Session token refreshed", session.user.id);
@@ -125,12 +161,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // Initialize Google Sign-In button
 function initializeGoogleSignIn() {
+    // Make sure the container is visible
+    googleSignInButton.style.display = 'block';
+
     // Create a custom Google sign-in button since we're using Supabase OAuth
     const googleButton = document.createElement('button');
     googleButton.type = 'button';
     googleButton.className = 'google-signin-btn';
     googleButton.innerHTML = '<img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">Continue with Google';
 
+    // Clear any existing content and append the button
     googleSignInButton.innerHTML = '';
     googleSignInButton.appendChild(googleButton);
 
@@ -138,16 +178,22 @@ function initializeGoogleSignIn() {
     googleButton.addEventListener('click', async () => {
         showLoading(true);
         try {
-            // Get the full current URL path including /FrenchAP
-            const fullPath = window.location.href.split('?')[0].split('#')[0];
-            console.log("Setting redirect URL to:", fullPath);
+            // Construct the full redirect URL including the path and filename
+            const currentUrl = window.location.href;
+            const redirectUrl = new URL(currentUrl);
 
-            // Use the default Supabase flow - it will handle the callback automatically
+            // Ensure we keep the full path with index.html if present
+            if (!redirectUrl.pathname.endsWith('index.html') && redirectUrl.pathname.endsWith('/')) {
+                redirectUrl.pathname += 'index.html';
+            }
+
+            console.log("Setting Google OAuth redirect to:", redirectUrl.toString());
+
+            // Use Supabase's OAuth flow with explicit redirect
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    // After Supabase processes the callback, redirect to our app's full path
-                    redirectTo: fullPath
+                    redirectTo: redirectUrl.toString()
                 }
             });
 
@@ -157,6 +203,8 @@ function initializeGoogleSignIn() {
                 showLoading(false);
             } else {
                 console.log("Google sign-in redirect initiated", data);
+                // Store the intended return path
+                localStorage.setItem('frenchAppUrl', redirectUrl.toString());
                 // Redirect will happen automatically
             }
         } catch (e) {
@@ -165,6 +213,9 @@ function initializeGoogleSignIn() {
             showLoading(false);
         }
     });
+
+    // Log for debugging
+    console.log("Google Sign-In button initialized");
 }
 
 // Authentication handling
@@ -183,16 +234,23 @@ authForm.addEventListener('submit', async (e) => {
         console.log("Login failed, attempting signup:", error.message);
 
         if (error.message.includes('Invalid login')) {
-            // Get the full current URL path for redirects
-            const fullPath = window.location.href.split('?')[0].split('#')[0];
-            console.log("Using redirect URL for signup:", fullPath);
+            // Construct the full redirect URL including the path and filename
+            const currentUrl = window.location.href;
+            const redirectUrl = new URL(currentUrl);
+
+            // Ensure we keep the full path with index.html if present
+            if (!redirectUrl.pathname.endsWith('index.html') && redirectUrl.pathname.endsWith('/')) {
+                redirectUrl.pathname += 'index.html';
+            }
+
+            console.log("Setting email redirect to:", redirectUrl.toString());
 
             // If login fails, try to sign up
             const { data: signupData, error: signupError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    emailRedirectTo: fullPath,
+                    emailRedirectTo: redirectUrl.toString(),
                     data: {
                         // Default role is student
                         role: 'student'
@@ -263,6 +321,10 @@ function showAuthSuccess(message) {
 
 async function loadUserInterface(user) {
     console.log("Loading user interface for user ID:", user.id);
+    console.log("Full user object:", user);
+    console.log("User metadata:", user.user_metadata);
+    console.log("App metadata:", user.app_metadata);
+
     authContainer.style.display = 'none';
     appContainer.style.display = 'block';
 
@@ -292,6 +354,68 @@ async function loadUserInterface(user) {
     }
 
     const name = data?.full_name || user.email.split('@')[0];
+
+    // Update user avatar if available from Google
+    const userAvatar = document.getElementById('user-avatar');
+    const defaultAvatarPath = 'Assets/avatar.png';
+
+    // Log all possible avatar locations
+    console.log("Checking for avatar in:", {
+        userMetadataAvatar: user.user_metadata?.avatar_url,
+        userMetadataPicture: user.user_metadata?.picture,
+        userMetadataPhotoUrl: user.user_metadata?.photo_url,
+        identitiesData: user.identities?.[0]?.identity_data
+    });
+
+    // Check all possible locations where Google might store the avatar URL
+    let avatarUrl = null;
+
+    // Common locations for profile pictures in different auth providers
+    if (user.user_metadata?.avatar_url) {
+        avatarUrl = user.user_metadata.avatar_url;
+    } else if (user.user_metadata?.picture) {
+        avatarUrl = user.user_metadata.picture;
+    } else if (user.user_metadata?.photo_url) {
+        avatarUrl = user.user_metadata.photo_url;
+    } else if (user.identities && user.identities[0]?.identity_data?.avatar_url) {
+        avatarUrl = user.identities[0].identity_data.avatar_url;
+    } else if (user.identities && user.identities[0]?.identity_data?.picture) {
+        avatarUrl = user.identities[0].identity_data.picture;
+    } else if (data && data.avatar_url) {
+        avatarUrl = data.avatar_url;
+    }
+
+    if (avatarUrl) {
+        userAvatar.src = avatarUrl;
+        console.log("Set user avatar:", avatarUrl);
+
+        // Add error handler to fallback to default avatar if loading fails
+        userAvatar.onerror = function () {
+            console.log("Error loading avatar, falling back to default");
+            this.src = defaultAvatarPath;
+            this.onerror = null; // Prevent infinite loop if default also fails
+        };
+
+        // Also update the profile in the database if needed
+        if (data && !data.avatar_url) {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ avatar_url: avatarUrl })
+                .eq('id', user.id);
+
+            if (updateError) {
+                console.error("Error updating profile with avatar:", updateError);
+            } else {
+                console.log("Updated profile with avatar URL");
+            }
+        }
+    } else {
+        // Ensure we use the default avatar if no custom avatar is found
+        userAvatar.src = defaultAvatarPath;
+        console.log("Using default avatar");
+    }
+
+    // Show user's name
     welcomeMessage.textContent = `Bonjour, ${name}!`;
     console.log("User interface loaded, setting up modules...");
 
@@ -645,6 +769,13 @@ async function handleSubmitButton(e) {
 
 logoutButton.addEventListener('click', async () => {
     await supabase.auth.signOut();
-    appContainer.style.display = 'none';
-    authContainer.style.display = 'block';
+
+    // Save FrenchAP path before reload if needed
+    if (window.location.pathname.includes('/FrenchAP')) {
+        localStorage.setItem('frenchAppUrl', window.location.href);
+    }
+
+    // Instead of trying to manipulate the DOM, simply reload the page
+    // This ensures all styles and elements are properly initialized
+    window.location.reload();
 });
