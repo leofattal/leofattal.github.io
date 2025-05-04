@@ -10,20 +10,27 @@
 <body>
     <!-- Auth Container -->
     <div id="auth-container">
-        <h1>Bienvenue à la plateforme French AP</h1>
-        <form id="auth-form">
-            <input type="email" id="email" placeholder="Email" required />
-            <input type="password" id="password" placeholder="Password" required />
-            <button type="submit" id="auth-button">Login / Signup</button>
-            <div id="auth-status"></div>
-            <div id="loading-indicator" style="display:none;">
-                <div class="loader"></div>
-                <p>Chargement...</p>
+        <div class="auth-banner">
+            <img src="Assets/Eiffel-banner.png" alt="Eiffel Tower at sunset" class="banner-image">
+            <div class="banner-overlay">
+                <h1>Bienvenue à la plateforme French AP</h1>
             </div>
-        </form>
-        <div id="verification-message" style="display:none;">
-            <p>Veuillez vérifier votre e-mail pour confirmer votre compte.</p>
-            <p>Une fois confirmé, vous pourrez vous connecter.</p>
+        </div>
+        <div class="auth-form-container">
+            <form id="auth-form">
+                <input type="email" id="email" placeholder="Email" required />
+                <input type="password" id="password" placeholder="Password" required />
+                <button type="submit" id="auth-button">Login / Signup</button>
+                <div id="auth-status"></div>
+                <div id="loading-indicator" style="display:none;">
+                    <div class="loader"></div>
+                    <p>Chargement...</p>
+                </div>
+            </form>
+            <div id="verification-message" style="display:none;">
+                <p>Veuillez vérifier votre e-mail pour confirmer votre compte.</p>
+                <p>Une fois confirmé, vous pourrez vous connecter.</p>
+            </div>
         </div>
     </div>
 
