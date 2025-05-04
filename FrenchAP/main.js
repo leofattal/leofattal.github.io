@@ -1,5 +1,23 @@
 import { supabase } from './supabase.js';
 
+// Log Supabase connection status
+console.log("Supabase client initialized with URL:", supabase.supabaseUrl);
+console.log("Connecting to Supabase...");
+
+// Test Supabase connection
+(async function testConnection() {
+    try {
+        const { data, error } = await supabase.from('lessons').select('count', { count: 'exact', head: true });
+        if (error) {
+            console.error("Supabase connection test failed:", error);
+        } else {
+            console.log("Successfully connected to Supabase");
+        }
+    } catch (e) {
+        console.error("Error testing Supabase connection:", e);
+    }
+})();
+
 // DOM elements
 const authForm = document.getElementById('auth-form');
 const authContainer = document.getElementById('auth-container');
@@ -20,8 +38,11 @@ const authButton = document.getElementById('auth-button');
 
 // Check if user is already logged in
 window.addEventListener('DOMContentLoaded', async () => {
+    console.log("Application starting, checking for existing session...");
     showLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
+    console.log("Auth session check result:", session ? "User logged in" : "No active session");
+
     if (session) {
         loadUserInterface(session.user);
     } else {
@@ -119,11 +140,13 @@ function showAuthSuccess(message) {
 }
 
 async function loadUserInterface(user) {
+    console.log("Loading user interface for user ID:", user.id);
     authContainer.style.display = 'none';
     appContainer.style.display = 'block';
 
     // Try to get user profile, create one if it doesn't exist
     let { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    console.log("Profile lookup result:", { data, error });
 
     // If profile doesn't exist, create one
     if (error || !data) {
@@ -141,12 +164,14 @@ async function loadUserInterface(user) {
         if (insertError) {
             console.error("Error creating profile:", insertError);
         } else {
+            console.log("Successfully created new profile");
             data = userData;
         }
     }
 
     const name = data?.full_name || user.email.split('@')[0];
     welcomeMessage.textContent = `Bonjour, ${name}!`;
+    console.log("User interface loaded, setting up modules...");
 
     // Add event listeners for module navigation
     setupModuleNavigation();
@@ -155,17 +180,23 @@ async function loadUserInterface(user) {
 // Module navigation
 async function setupModuleNavigation() {
     try {
+        console.log("Attempting to fetch lessons from Supabase...");
+
         // First try to fetch lessons from Supabase
         const { data: lessons, error } = await supabase
             .from('lessons')
             .select('id, title')
             .order('id');
 
+        console.log("Supabase lessons response:", { lessons, error });
+
         if (error || !lessons || lessons.length === 0) {
             console.log("Could not fetch lessons from Supabase or no lessons found. Using mock data.");
             setupMockModuleNavigation();
             return;
         }
+
+        console.log("Successfully loaded", lessons.length, "lessons from Supabase");
 
         // Clear existing module list
         moduleList.innerHTML = '';
@@ -196,6 +227,7 @@ async function setupModuleNavigation() {
         });
     } catch (e) {
         console.error("Error setting up module navigation:", e);
+        console.log("Falling back to mock data due to error");
         // Fallback to mock data
         setupMockModuleNavigation();
     }
@@ -203,6 +235,7 @@ async function setupModuleNavigation() {
 
 // Fallback to mock module navigation if Supabase fetch fails
 function setupMockModuleNavigation() {
+    console.log("Setting up mock module navigation with hardcoded data");
     moduleItems.forEach(item => {
         item.addEventListener('click', () => {
             // Remove active class from all items
@@ -224,6 +257,8 @@ function setupMockModuleNavigation() {
 // Function to load lesson content from Supabase
 async function loadLesson(lessonId) {
     try {
+        console.log("Attempting to load lesson content for ID:", lessonId);
+
         // Fetch lesson content
         const { data: lesson, error } = await supabase
             .from('lessons')
@@ -231,11 +266,15 @@ async function loadLesson(lessonId) {
             .eq('id', lessonId)
             .single();
 
+        console.log("Supabase lesson response:", { lesson, error });
+
         if (error) {
             console.error('Error fetching lesson:', error);
             lessonContent.innerHTML = '<p>Error loading lesson content.</p>';
             return;
         }
+
+        console.log("Successfully loaded lesson:", lesson.title);
 
         // Update lesson title and content
         lessonTitle.textContent = lesson.title;
@@ -252,11 +291,15 @@ async function loadLesson(lessonId) {
 // Function to load exercises for a lesson
 async function loadExercises(lessonId) {
     try {
+        console.log("Attempting to load exercises for lesson ID:", lessonId);
+
         // Fetch exercises for this lesson
         const { data: exercises, error } = await supabase
             .from('exercises')
             .select('*')
             .eq('lesson_id', lessonId);
+
+        console.log("Supabase exercises response:", { exercises, error });
 
         if (error || !exercises || exercises.length === 0) {
             console.log("Could not fetch exercises or no exercises found for lesson:", lessonId);
@@ -264,11 +307,15 @@ async function loadExercises(lessonId) {
             return;
         }
 
+        console.log("Successfully loaded", exercises.length, "exercises");
+
         // Clear existing exercises
         exercisesContainer.innerHTML = '<h3>Exercices</h3>';
 
         // Add exercises to container
         exercises.forEach(exercise => {
+            console.log("Processing exercise:", exercise.id, exercise.prompt.substring(0, 30) + "...");
+
             const exerciseDiv = document.createElement('div');
             exerciseDiv.className = 'exercise';
             exerciseDiv.dataset.id = exercise.id;
@@ -315,6 +362,8 @@ async function loadExercises(lessonId) {
 
 // Mock function to update lesson content based on selected module (fallback)
 function updateMockLessonContent(moduleId) {
+    console.log("Using mock lesson content for module ID:", moduleId);
+
     const mockContent = {
         '1': `
       <p>Bienvenue au premier module de français AP! Dans cette leçon, nous allons explorer les bases de la langue française.</p>
