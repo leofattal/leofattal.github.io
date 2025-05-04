@@ -1,0 +1,63 @@
+# Supabase Table Structure for French AP Platform
+
+## `profiles`
+Stores user info beyond built-in Supabase Auth.
+
+| Column     | Type      | Description                     |
+|------------|-----------|---------------------------------|
+| id         | UUID      | Primary key (auth.users ref)    |
+| full_name  | Text      | Full name                       |
+| role       | Text      | 'student' or 'teacher'          |
+| created_at | Timestamp | User creation date              |
+
+---
+
+## `lessons`
+Lesson-level metadata and content.
+
+| Column      | Type      | Description                     |
+|-------------|-----------|---------------------------------|
+| id          | UUID      | Primary key                     |
+| title       | Text      | Lesson title                    |
+| description | Text      | Optional summary                |
+| html_content| Text      | HTML or markdown content        |
+| created_at  | Timestamp | Lesson creation date            |
+
+---
+
+## `exercises`
+Individual exercises linked to lessons.
+
+| Column       | Type      | Description                     |
+|--------------|-----------|---------------------------------|
+| id           | UUID      | Primary key                     |
+| lesson_id    | UUID      | FK to lessons                   |
+| question_type| Text      | 'text' or 'audio'               |
+| prompt       | Text      | Exercise prompt text            |
+| created_at   | Timestamp | Exercise creation date          |
+
+---
+
+## `submissions`
+Student responses to exercises.
+
+| Column       | Type      | Description                     |
+|--------------|-----------|---------------------------------|
+| id           | UUID      | Primary key                     |
+| exercise_id  | UUID      | FK to exercises                 |
+| user_id      | UUID      | FK to auth.users                |
+| answer       | Text      | Answer (text or audio URL)      |
+| submitted_at | Timestamp | Submission timestamp            |
+
+---
+
+## `feedback`
+Feedback provided by teachers (or AI).
+
+| Column        | Type      | Description                    |
+|---------------|-----------|--------------------------------|
+| id            | UUID      | Primary key                    |
+| submission_id | UUID      | FK to submissions              |
+| reviewer_id   | UUID      | FK to auth.users               |
+| comment       | Text      | Feedback text                  |
+| created_at    | Timestamp | Feedback creation date         |

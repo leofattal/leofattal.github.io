@@ -1,0 +1,232 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+/* Auth container */
+#auth-container {
+    text-align: center;
+    padding: 40px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+form {
+    margin: 20px auto;
+    display: inline-block;
+}
+
+input {
+    margin: 10px;
+    padding: 10px;
+    width: 250px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #005bbb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #003d7a;
+}
+
+/* Auth status and loader */
+#auth-status {
+    margin-top: 15px;
+    min-height: 20px;
+    color: #666;
+}
+
+#loading-indicator {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.loader {
+    border: 4px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 4px solid #005bbb;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+#verification-message {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+.error-message {
+    color: #dc3545;
+}
+
+.success-message {
+    color: #28a745;
+}
+
+/* Main app layout */
+#app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color: #005bbb;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+#user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+main {
+    display: flex;
+    flex: 1;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 250px;
+    background-color: #f0f0f0;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+}
+
+#module-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#module-list li {
+    padding: 12px 15px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#module-list li:hover {
+    background-color: #e0e0e0;
+}
+
+#module-list li.active {
+    background-color: #e6f0fa;
+    color: #005bbb;
+    font-weight: bold;
+}
+
+/* Content area */
+#content-area {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+#lesson-container {
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 25px;
+    margin-bottom: 25px;
+}
+
+#lesson-title {
+    margin-top: 0;
+    color: #005bbb;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+/* Exercises */
+#exercises-container {
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 25px;
+}
+
+.exercise {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.exercise:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.exercise-prompt {
+    margin-bottom: 15px;
+}
+
+.exercise-response textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-family: Arial, sans-serif;
+}
+
+.record-btn {
+    background-color: #dc3545;
+}
+
+.record-btn:hover {
+    background-color: #c82333;
+}
+
+.submit-btn {
+    background-color: #28a745;
+}
+
+.submit-btn:hover {
+    background-color: #218838;
+}
+
+.audio-player {
+    margin-top: 10px;
+}
+
+audio {
+    width: 100%;
+    margin-bottom: 10px;
+}
