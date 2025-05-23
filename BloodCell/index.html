@@ -5,15 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blood Cell Classifier</title>
   <style>
-    body {
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
       font-family: Arial, sans-serif;
-      background-image: url('Assets/BloodCellBackground.png');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      background-repeat: no-repeat;
       color: #fff;
       text-align: center;
+    }
+    .background-video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
       padding: 40px;
     }
     h1 {
@@ -53,16 +65,23 @@
   </style>
 </head>
 <body>
-  <h1>Blood Cell Image Classifier</h1>
-  <p>Upload an image of a blood cell to classify its type using AI.</p>
+  <video class="background-video" autoplay loop muted playsinline poster="Assets/BloodCellBackground.png">
+    <source src="Assets/BloodCellBackground.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
 
-  <div id="upload-area" onclick="document.getElementById('image-upload').click()">
-    <p>Click or Drag an Image Here</p>
-    <input type="file" id="image-upload" accept="image/*">
+  <div class="content">
+    <h1>Blood Cell Image Classifier</h1>
+    <p>Upload an image of a blood cell to classify its type using AI.</p>
+
+    <div id="upload-area" onclick="document.getElementById('image-upload').click()">
+      <p>Click or Drag an Image Here</p>
+      <input type="file" id="image-upload" accept="image/*">
+    </div>
+
+    <img id="preview-image" src="" alt="Preview" style="display: none;">
+    <div id="label-container"></div>
   </div>
-
-  <img id="preview-image" src="" alt="Preview" style="display: none;">
-  <div id="label-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   <script>
