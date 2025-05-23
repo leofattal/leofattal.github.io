@@ -7,8 +7,12 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f9f9f9;
-      color: #333;
+      background-image: url('Assets/BloodCellBackground.png');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+      color: #fff;
       text-align: center;
       padding: 40px;
     }
@@ -17,17 +21,17 @@
       margin-bottom: 0.5em;
     }
     #upload-area {
-      border: 2px dashed #ccc;
+      border: 2px dashed #fff;
       border-radius: 10px;
       padding: 40px;
-      background-color: #fff;
+      background-color: rgba(0, 0, 0, 0.6);
       max-width: 400px;
       margin: 20px auto;
       cursor: pointer;
       transition: border-color 0.3s;
     }
     #upload-area:hover {
-      border-color: #007BFF;
+      border-color: #00d8ff;
     }
     #upload-area input {
       display: none;
@@ -36,10 +40,15 @@
       margin-top: 20px;
       max-width: 100%;
       height: auto;
+      border-radius: 10px;
     }
     #label-container {
       margin-top: 20px;
       font-size: 1.1em;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      border-radius: 10px;
+      display: inline-block;
     }
   </style>
 </head>
