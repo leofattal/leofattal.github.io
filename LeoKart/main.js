@@ -823,18 +823,7 @@ function render() {
         if ((keyboard['ArrowLeft'] || joystickState.left) && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
         if ((keyboard['ArrowRight'] || joystickState.right) && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
 
-        // VR controller steering - use left controller rotation
-        if (isVRMode && vrControllers.length > 0) {
-            const leftController = vrControllers[0];
-            if (leftController && leftController.rotation) {
-                // Extract rotation around Y axis (left/right turning)
-                const rotationY = leftController.rotation.y;
-                // Apply steering based on controller rotation
-                if (velocity !== 0 && isOnGround) {
-                    steer = rotationY * turnSpeed * 2 * (velocity / maxSpeed);
-                }
-            }
-        }
+
 
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
@@ -855,39 +844,13 @@ function render() {
             if (isOnGround || isLanding) {
                 const pitchQuaternion = getQuaternionFromVectors(up, roadNormal);
 
-                // Different handling for VR mode vs non-VR mode
-                if (isVRMode && camera.userData.vrMode) {
-                    // For VR, manually apply rotation to worldContainer rather than kart
-                    up = roadNormal.clone();
-                    const forward = direction.clone().applyQuaternion(pitchQuaternion);
-
-                    // Apply steering - this is key for VR steering to work
-                    if (steer !== 0) {
-                        // Get camera position
-                        const cameraPosition = new THREE.Vector3();
-                        camera.getWorldPosition(cameraPosition);
-
-                        // Rotate world around camera position
-                        const yawMatrix = new THREE.Matrix4().makeRotationAxis(up, -steer);
-                        worldContainer.position.sub(cameraPosition);
-                        worldContainer.position.applyMatrix4(yawMatrix);
-                        worldContainer.position.add(cameraPosition);
-                        worldContainer.rotation.y += -steer;
-
-                        // Update direction vector
-                        direction = forward.applyAxisAngle(up, steer);
-                    } else {
-                        direction = forward;
-                    }
-                } else {
-                    // Non-VR mode - original behavior
-                    kart.quaternion.premultiply(pitchQuaternion);
-                    const forward = direction.clone().applyQuaternion(pitchQuaternion);
-                    up = roadNormal.clone();
-                    const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(up, steer);
-                    kart.quaternion.premultiply(yawQuaternion);
-                    direction = forward.applyAxisAngle(up, steer);
-                }
+                // Unified steering logic for both VR and non-VR modes
+                kart.quaternion.premultiply(pitchQuaternion);
+                const forward = direction.clone().applyQuaternion(pitchQuaternion);
+                up = roadNormal.clone();
+                const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(up, steer);
+                kart.quaternion.premultiply(yawQuaternion);
+                direction = forward.applyAxisAngle(up, steer);
 
                 right = new THREE.Vector3().crossVectors(direction, up).normalize();
             }
@@ -932,76 +895,36 @@ function render() {
 
         if (!isOnGround) verticalVelocity += gravity * delta;
 
-        // Handle movement differently for VR vs non-VR mode
-        if (isVRMode && camera.userData.vrMode) {
-            // In VR mode, move the world container instead of the kart
-            if (obstacleNormal) {
-                const velocityVector = direction.clone().multiplyScalar(velocity);
-                const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
-                const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
-                worldContainer.position.sub(tangentialVelocity.multiplyScalar(delta / 0.008));
-            } else {
-                worldContainer.position.sub(direction.clone().multiplyScalar(velocity * delta / 0.008));
-            }
-            worldContainer.position.y -= verticalVelocity * delta / .008;
+        // Movement logic (same for both VR and non-VR modes)
+        if (obstacleNormal) {
+            const velocityVector = direction.clone().multiplyScalar(velocity);
+            const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
+            const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
+            kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
         } else {
-            // Non-VR mode - move the kart as before
-            if (obstacleNormal) {
-                const velocityVector = direction.clone().multiplyScalar(velocity);
-                const projectionOntoNormal = obstacleNormal.clone().multiplyScalar(velocityVector.dot(obstacleNormal));
-                const tangentialVelocity = velocityVector.clone().sub(projectionOntoNormal);
-                kart.position.addScaledVector(tangentialVelocity, delta / 0.008);
-            } else {
-                kart.position.addScaledVector(direction, velocity * delta / 0.008);
-            }
-            kart.position.y += verticalVelocity * delta / .008;
+            kart.position.addScaledVector(direction, velocity * delta / 0.008);
         }
+        kart.position.y += verticalVelocity * delta / .008;
 
-        // Check for finish line crossing - this needs to be inverted for VR mode
+        // Check for finish line crossing
         if (kart && startTime !== null) {
-            let kartX, kartZ;
-
-            if (isVRMode && camera.userData.vrMode) {
-                // In VR mode, use the negative of the world container position
-                kartX = -worldContainer.position.x;
-                kartZ = -worldContainer.position.z;
-                // For oldZ comparison, get the previous Z position
-                if (kartZ <= 0 && oldZ > 0) {
-                    finishTime = (performance.now() - startTime) / 1000;
-                    if (finishTime > 20) {
-                        finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
-                        finishSound.play();
-                        saveBestTime();
-                        startTime = performance.now();
-                    }
-                }
-            } else {
-                // Non-VR mode - use kart position directly
-                kartX = kart.position.x;
-                kartZ = kart.position.z;
-                if (kartX >= -100 * scaleFactor && kartX <= 100 * scaleFactor && kartZ <= 0 && oldZ > 0) {
-                    finishTime = (performance.now() - startTime) / 1000;
-                    if (finishTime > 20) {
-                        finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
-                        finishSound.play();
-                        saveBestTime();
-                        startTime = performance.now();
-                    }
+            const kartX = kart.position.x;
+            const kartZ = kart.position.z;
+            if (kartX >= -100 * scaleFactor && kartX <= 100 * scaleFactor && kartZ <= 0 && oldZ > 0) {
+                finishTime = (performance.now() - startTime) / 1000;
+                if (finishTime > 20) {
+                    finishDiv.innerHTML = `Best: ${finishTime.toFixed(2)}s`;
+                    finishSound.play();
+                    saveBestTime();
+                    startTime = performance.now();
                 }
             }
         }
 
-        // Check for falling off the track - different for VR vs non-VR
-        if (isVRMode && camera.userData.vrMode) {
-            if (worldContainer.position.y > 1000 * scaleFactor) {
-                showGameOver();
-                return;
-            }
-        } else {
-            if (kart.position.y < -1000 * scaleFactor) {
-                showGameOver();
-                return;
-            }
+        // Check for falling off the track
+        if (kart.position.y < -1000 * scaleFactor) {
+            showGameOver();
+            return;
         }
 
         // Check collision with coin
@@ -1184,99 +1107,65 @@ function checkXButtonState() {
 
     for (const source of session.inputSources) {
         // Add comprehensive button logging to identify correct indices
-        if (source.gamepad && (performance.now() % 100 < 10)) { // Log every ~100ms
-            console.log(`Controller ${source.handedness} buttons:`,
-                source.gamepad.buttons.map((btn, idx) =>
-                    btn.pressed ? `Button ${idx}: PRESSED (value: ${btn.value.toFixed(2)})` : ''));
+        if (source.gamepad) {
+            source.gamepad.buttons.forEach((btn, idx) => {
+                if (btn.pressed) {
+                    console.log(`Controller ${source.handedness} button ${idx}: PRESSED (value: ${btn.value.toFixed(2)})`);
+                }
+            });
         }
 
         // Check if it's a gamepad
         if (source.gamepad && source.handedness === 'left') {
-            // X button is at index 4 as per user feedback
-            const xButton = source.gamepad.buttons[4] || source.gamepad.buttons[2];
+            // X button (index 4) for turning left
+            const xButton = source.gamepad.buttons[4];
+            // Y button (index 5) for turning right
+            const yButton = source.gamepad.buttons[5];
+            // Left trigger (index 0) for deceleration
+            const leftTrigger = source.gamepad.buttons[0];
 
             if (xButton && xButton.pressed) {
-                // X button is pressed - accelerate
-                joystickState.up = true;
+                joystickState.left = true;
+                console.log("Left controller X button pressed - TURNING LEFT");
             } else {
-                // X button is released - stop accelerating
-                joystickState.up = false;
+                joystickState.left = false;
+            }
+
+            if (yButton && yButton.pressed) {
+                joystickState.right = true;
+                console.log("Left controller Y button pressed - TURNING RIGHT");
+            } else {
+                joystickState.right = false;
+            }
+
+            if (leftTrigger && leftTrigger.pressed) {
+                joystickState.down = true;
+                console.log("Left controller trigger pressed - DECELERATING");
+            } else {
+                joystickState.down = false;
             }
         }
 
         // Also check right controller buttons directly via gamepad API
         if (source.gamepad && source.handedness === 'right') {
-            // Try multiple possible trigger button indices (0, 2, 3, 4)
+            // Right trigger (try multiple indices) for acceleration
             const possibleTriggerIndices = [0, 2, 3, 4];
             let triggerPressed = false;
 
             for (const idx of possibleTriggerIndices) {
                 if (source.gamepad.buttons[idx] && source.gamepad.buttons[idx].pressed) {
                     triggerPressed = true;
-                    console.log(`Right controller button ${idx} pressed - Using as TRIGGER/TURN LEFT`);
+                    console.log(`Right controller button ${idx} pressed - Using as TRIGGER/ACCELERATE`);
                     break;
                 }
             }
 
             if (triggerPressed) {
-                joystickState.left = true;
-                leftTriggerPressed = true;
-                console.log("Right controller trigger pressed - TURNING LEFT");
-
-                // DIRECT TURNING - around kart position
-                if (worldContainer && isVRMode && kart) {
-                    // Use kart position as the rotation center
-                    const kartPosition = new THREE.Vector3();
-                    kart.getWorldPosition(kartPosition);
-
-                    // Apply a fixed rotation amount (INVERTED: negative for LEFT turn)
-                    const rotationAmount = -0.02; // Small fixed rotation per frame
-
-                    // Translate world to origin relative to kart, rotate, and translate back
-                    worldContainer.position.sub(kartPosition); // Move to origin relative to kart
-                    worldContainer.rotation.y += rotationAmount; // Rotate
-
-                    // Apply rotation to the position vector
-                    const rotationMatrix = new THREE.Matrix4().makeRotationY(rotationAmount);
-                    worldContainer.position.applyMatrix4(rotationMatrix);
-
-                    worldContainer.position.add(kartPosition); // Move back to kart-relative position
-
-                    console.log("Rotating world container LEFT around kart by", rotationAmount);
-                }
-            } else {
-                joystickState.left = false;
-            }
-
-            // Grip is typically button 1
-            if (source.gamepad.buttons[1] && source.gamepad.buttons[1].pressed) {
-                joystickState.right = true;
+                joystickState.up = true;
                 rightTriggerPressed = true;
-                console.log("Right controller grip pressed - TURNING RIGHT");
-
-                // DIRECT TURNING - around kart position
-                if (worldContainer && isVRMode && kart) {
-                    // Use kart position as the rotation center
-                    const kartPosition = new THREE.Vector3();
-                    kart.getWorldPosition(kartPosition);
-
-                    // Apply a fixed rotation amount (INVERTED: positive for RIGHT turn)
-                    const rotationAmount = 0.02; // Small fixed rotation per frame
-
-                    // Translate world to origin relative to kart, rotate, and translate back
-                    worldContainer.position.sub(kartPosition); // Move to origin relative to kart
-                    worldContainer.rotation.y += rotationAmount; // Rotate
-
-                    // Apply rotation to the position vector
-                    const rotationMatrix = new THREE.Matrix4().makeRotationY(rotationAmount);
-                    worldContainer.position.applyMatrix4(rotationMatrix);
-
-                    worldContainer.position.add(kartPosition); // Move back to kart-relative position
-
-                    console.log("Rotating world container RIGHT around kart by", rotationAmount);
-                }
+                console.log("Right controller trigger pressed - ACCELERATING");
             } else {
-                joystickState.right = false;
+                joystickState.up = false;
             }
         }
     }
