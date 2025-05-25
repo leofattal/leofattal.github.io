@@ -807,6 +807,47 @@ function render() {
     // Check for X button press in VR mode
     if (isVRMode) {
         checkXButtonState();
+
+        // Update VR camera pose to follow the kart using WebXR-OpenXR Bridge
+        if (window.WebXROpenXRBridge && kart && camera.userData.vrMode) {
+            try {
+                // Calculate position 2m behind the kart in local kart coordinates
+                const backwardOffset = new THREE.Vector3(0, 0, 2); // 2m behind in local space
+
+                // Transform the offset to world space using kart's rotation
+                backwardOffset.applyQuaternion(kart.quaternion);
+
+                // Calculate world position (kart position + rotated offset)
+                const cameraWorldPos = kart.position.clone().add(backwardOffset);
+
+                // Prepare pose object for the extension
+                const headPose = {
+                    position: {
+                        x: cameraWorldPos.x,
+                        y: cameraWorldPos.y,
+                        z: cameraWorldPos.z
+                    },
+                    orientation: {
+                        x: kart.quaternion.x,
+                        y: kart.quaternion.y,
+                        z: kart.quaternion.z,
+                        w: kart.quaternion.w
+                    }
+                };
+
+                // Update the VR camera pose (non-blocking)
+                WebXROpenXRBridge.setHeadPose(headPose).catch(error => {
+                    // Silently handle errors to avoid spamming console
+                    if (error.message !== 'No active OpenXR session' && error.message !== 'Request timed out') {
+                        console.warn('VR pose update failed:', error.message);
+                    }
+                });
+
+            } catch (error) {
+                // Handle any unexpected errors
+                console.warn('VR pose calculation error:', error);
+            }
+        }
     }
 
     if (kart) {
@@ -1093,6 +1134,14 @@ function setupVRButton() {
         document.getElementById('game-overlay').style.display = 'none';
         document.getElementById('joystick-container').style.display = 'none';
         document.getElementById('steering-controls').style.display = 'none';
+
+        // Check for WebXR-OpenXR Bridge extension
+        if (window.WebXROpenXRBridge) {
+            console.log('WebXR-OpenXR Bridge extension detected - VR camera pose control enabled');
+        } else {
+            console.log('WebXR-OpenXR Bridge extension not found - using standard VR camera positioning');
+        }
+
         setupVRControllers();
     }
 }
