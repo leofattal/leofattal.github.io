@@ -866,9 +866,9 @@ function render() {
 
 
 
-        raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), downDirection);
+        raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10 * scaleFactor, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
-        raycasterFront.set(kart.position.clone().add(new THREE.Vector3(0, 10, 0)), direction);
+        raycasterFront.set(kart.position.clone().add(new THREE.Vector3(0, 10 * scaleFactor, 0)), direction);
         const objectsToCheck = [track, donut];
         const intersectsFront = raycasterFront.intersectObjects(objectsToCheck, true);
 
@@ -922,7 +922,7 @@ function render() {
         if (intersectsFront.length > 0) {
             const frontPoint = intersectsFront[0].point;
             const distanceToFrontPoint = raycaster.ray.origin.distanceTo(frontPoint);
-            if (distanceToFrontPoint < 10) {
+            if (distanceToFrontPoint < 10 * scaleFactor) {
                 obstacleNormal = intersectsFront[0].face.normal.clone();
                 intersectsFront[0].object.updateMatrixWorld();
                 obstacleNormal.applyMatrix3(new THREE.Matrix3().getNormalMatrix(intersectsFront[0].object.matrixWorld)).normalize();
@@ -1195,7 +1195,7 @@ function checkXButtonState() {
             }
         }
 
-        // Also check right controller buttons directly via gamepad API
+        // Also check right controller buttons and thumbstick
         if (source.gamepad && source.handedness === 'right') {
             // Right trigger (try multiple indices) for acceleration
             const possibleTriggerIndices = [0, 2, 3, 4];
@@ -1209,11 +1209,61 @@ function checkXButtonState() {
                 }
             }
 
-            if (triggerPressed) {
+            // Handle thumbstick inputs (axes[2] = right stick X, axes[3] = right stick Y)
+            let thumbstickActive = false;
+            if (source.gamepad.axes && source.gamepad.axes.length >= 4) {
+                const rightStickX = source.gamepad.axes[2]; // Left/Right steering
+                const rightStickY = source.gamepad.axes[3]; // Up/Down acceleration/deceleration
+
+                const deadzone = 0.2; // Ignore small movements
+
+                // Thumbstick Y-axis: Up = negative (accelerate), Down = positive (decelerate)
+                if (rightStickY < -deadzone) {
+                    joystickState.up = true;
+                    thumbstickActive = true;
+                    if (Math.abs(rightStickY) > 0.5) {
+                        console.log(`Right thumbstick UP: ${rightStickY.toFixed(2)} - ACCELERATING`);
+                    }
+                } else if (rightStickY > deadzone) {
+                    joystickState.down = true;
+                    thumbstickActive = true;
+                    if (Math.abs(rightStickY) > 0.5) {
+                        console.log(`Right thumbstick DOWN: ${rightStickY.toFixed(2)} - DECELERATING`);
+                    }
+                } else {
+                    // Reset acceleration/deceleration if thumbstick is neutral
+                    if (!triggerPressed) {
+                        joystickState.up = false;
+                    }
+                    joystickState.down = false;
+                }
+
+                // Thumbstick X-axis: Left = negative, Right = positive
+                if (rightStickX < -deadzone) {
+                    joystickState.left = true;
+                    if (Math.abs(rightStickX) > 0.5) {
+                        console.log(`Right thumbstick LEFT: ${rightStickX.toFixed(2)} - TURNING LEFT`);
+                    }
+                } else if (rightStickX > deadzone) {
+                    joystickState.right = true;
+                    if (Math.abs(rightStickX) > 0.5) {
+                        console.log(`Right thumbstick RIGHT: ${rightStickX.toFixed(2)} - TURNING RIGHT`);
+                    }
+                } else {
+                    // Reset steering if thumbstick is neutral (but don't override button inputs)
+                    if (!joystickState.left && !joystickState.right) {
+                        joystickState.left = false;
+                        joystickState.right = false;
+                    }
+                }
+            }
+
+            // Handle trigger button (only if thumbstick isn't controlling acceleration)
+            if (triggerPressed && !thumbstickActive) {
                 joystickState.up = true;
                 rightTriggerPressed = true;
                 console.log("Right controller trigger pressed - ACCELERATING");
-            } else {
+            } else if (!thumbstickActive) {
                 joystickState.up = false;
             }
         }
