@@ -1173,25 +1173,33 @@ function checkXButtonState() {
     let leftTriggerPressed = false;
     let rightTriggerPressed = false;
 
-    for (const source of session.inputSources) {
-        // Add comprehensive button and axes logging to identify correct indices
-        if (source.gamepad && (performance.now() % 1000 < 20)) { // Log every ~1 second
-            // Log active buttons
-            const activeButtons = source.gamepad.buttons
-                .map((btn, idx) => btn.pressed ? `Button ${idx}: PRESSED (${btn.value.toFixed(2)})` : null)
-                .filter(Boolean);
-            if (activeButtons.length > 0) {
-                console.log(`Controller ${source.handedness} buttons:`, activeButtons.join(', '));
-            }
-
-            // Log all axes values to identify thumbstick indices
-            if (source.gamepad.axes && source.gamepad.axes.length > 0) {
-                const activeAxes = source.gamepad.axes
-                    .map((axis, idx) => Math.abs(axis) > 0.1 ? `Axis ${idx}: ${axis.toFixed(3)}` : null)
-                    .filter(Boolean);
-                if (activeAxes.length > 0) {
-                    console.log(`Controller ${source.handedness} axes:`, activeAxes.join(', '));
+    // Try to get the current frame for proper WebXR input access
+    const frame = renderer.xr.getFrame();
+    if (frame && session.inputSources) {
+        // Try accessing thumbstick through WebXR frame-based input
+        for (const source of session.inputSources) {
+            if (source.handedness === 'right' && source.gamepad) {
+                try {
+                    // Try to get input source state through the frame
+                    const inputSourceState = frame.getInputSourceState ? frame.getInputSourceState(source) : null;
+                    if (inputSourceState) {
+                        console.log('WebXR input source state available:', Object.keys(inputSourceState));
+                    }
+                } catch (e) {
+                    // This method might not exist
                 }
+            }
+        }
+    }
+
+    for (const source of session.inputSources) {
+        // Debug WebXR input source properties to find thumbstick access
+        if (performance.now() % 2000 < 20) { // Log every ~2 seconds
+            console.log(`Controller ${source.handedness} profiles:`, source.profiles);
+            console.log(`Controller ${source.handedness} properties:`, Object.keys(source));
+            if (source.gamepad) {
+                console.log(`Controller ${source.handedness} gamepad axes:`, source.gamepad.axes ? source.gamepad.axes.map(a => a.toFixed(3)) : 'none');
+                console.log(`Controller ${source.handedness} gamepad mapping:`, source.gamepad.mapping);
             }
         }
 
@@ -1285,18 +1293,35 @@ function checkXButtonState() {
                 }
             }
 
-            // Handle thumbstick inputs - try different possible axis indices
+            // Handle thumbstick inputs - try WebXR specific access methods
             let thumbstickActive = false;
 
-            // Try to get axes from gamepad object, with fallback to session.inputSources
+            // Method 1: Direct gamepad access (what we were doing)
+            let rightStickX = 0, rightStickY = 0;
             let gamepadAxes = source.gamepad.axes;
+
+            // Method 2: Try accessing through WebXR getGamepad() if available
+            if ((!gamepadAxes || gamepadAxes.length === 0) && source.getGamepad) {
+                try {
+                    const webxrGamepad = source.getGamepad();
+                    if (webxrGamepad && webxrGamepad.axes) {
+                        gamepadAxes = webxrGamepad.axes;
+                        console.log(`Using WebXR getGamepad() method: ${gamepadAxes.length} axes found`);
+                    }
+                } catch (e) {
+                    console.log('WebXR getGamepad() not available:', e.message);
+                }
+            }
+
+            // Method 3: Try manual polling of the navigator.getGamepads() with WebXR session
             if (!gamepadAxes || gamepadAxes.length === 0) {
-                // Fallback: try to get gamepad from session.inputSources
-                const sessionSources = session.inputSources;
-                for (let i = 0; i < sessionSources.length; i++) {
-                    if (sessionSources[i].handedness === 'right' && sessionSources[i].gamepad && sessionSources[i].gamepad.axes) {
-                        gamepadAxes = sessionSources[i].gamepad.axes;
-                        console.log(`Using fallback gamepad access for axes: ${gamepadAxes.length} axes found`);
+                const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                for (let i = 0; i < gamepads.length; i++) {
+                    const gp = gamepads[i];
+                    if (gp && gp.axes && gp.axes.length > 0) {
+                        console.log(`Found gamepad ${i} with ${gp.axes.length} axes:`, gp.axes.map(a => a.toFixed(3)));
+                        // Use this gamepad for now to test
+                        gamepadAxes = gp.axes;
                         break;
                     }
                 }
@@ -1304,7 +1329,6 @@ function checkXButtonState() {
 
             if (gamepadAxes && gamepadAxes.length >= 2) {
                 // Try common thumbstick axis configurations
-                let rightStickX, rightStickY;
 
                 // Configuration 1: axes[2] and axes[3] (most common)
                 if (gamepadAxes.length >= 4) {
