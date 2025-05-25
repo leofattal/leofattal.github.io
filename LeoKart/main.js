@@ -1174,13 +1174,25 @@ function checkXButtonState() {
     let rightTriggerPressed = false;
 
     for (const source of session.inputSources) {
-        // Add comprehensive button logging to identify correct indices
-        if (source.gamepad) {
-            source.gamepad.buttons.forEach((btn, idx) => {
-                if (btn.pressed) {
-                    console.log(`Controller ${source.handedness} button ${idx}: PRESSED (value: ${btn.value.toFixed(2)})`);
+        // Add comprehensive button and axes logging to identify correct indices
+        if (source.gamepad && (performance.now() % 1000 < 20)) { // Log every ~1 second
+            // Log active buttons
+            const activeButtons = source.gamepad.buttons
+                .map((btn, idx) => btn.pressed ? `Button ${idx}: PRESSED (${btn.value.toFixed(2)})` : null)
+                .filter(Boolean);
+            if (activeButtons.length > 0) {
+                console.log(`Controller ${source.handedness} buttons:`, activeButtons.join(', '));
+            }
+
+            // Log all axes values to identify thumbstick indices
+            if (source.gamepad.axes && source.gamepad.axes.length > 0) {
+                const activeAxes = source.gamepad.axes
+                    .map((axis, idx) => Math.abs(axis) > 0.1 ? `Axis ${idx}: ${axis.toFixed(3)}` : null)
+                    .filter(Boolean);
+                if (activeAxes.length > 0) {
+                    console.log(`Controller ${source.handedness} axes:`, activeAxes.join(', '));
                 }
-            });
+            }
         }
 
         // Check if it's a gamepad
@@ -1228,56 +1240,69 @@ function checkXButtonState() {
                 }
             }
 
-            // Handle thumbstick inputs (axes[2] = right stick X, axes[3] = right stick Y)
+            // Handle thumbstick inputs - try different possible axis indices
             let thumbstickActive = false;
-            if (source.gamepad.axes && source.gamepad.axes.length >= 4) {
-                const rightStickX = source.gamepad.axes[2]; // Left/Right steering
-                const rightStickY = source.gamepad.axes[3]; // Up/Down acceleration/deceleration
+            if (source.gamepad.axes && source.gamepad.axes.length >= 2) {
+                // Try common thumbstick axis configurations
+                let rightStickX, rightStickY;
 
-                const deadzone = 0.1; // Reduced deadzone for better sensitivity
-                const steeringMultiplier = 1.5; // Make steering more responsive
-
-                // Thumbstick Y-axis: Up = negative (accelerate), Down = positive (decelerate)
-                if (rightStickY < -deadzone) {
-                    joystickState.up = true;
-                    thumbstickActive = true;
-                    if (Math.abs(rightStickY) > 0.5) {
-                        console.log(`Right thumbstick UP: ${rightStickY.toFixed(2)} - ACCELERATING`);
-                    }
-                } else if (rightStickY > deadzone) {
-                    joystickState.down = true;
-                    thumbstickActive = true;
-                    if (Math.abs(rightStickY) > 0.5) {
-                        console.log(`Right thumbstick DOWN: ${rightStickY.toFixed(2)} - DECELERATING`);
-                    }
-                } else {
-                    // Reset acceleration/deceleration if thumbstick is neutral
-                    if (!triggerPressed) {
-                        joystickState.up = false;
-                    }
-                    joystickState.down = false;
+                // Configuration 1: axes[2] and axes[3] (most common)
+                if (source.gamepad.axes.length >= 4) {
+                    rightStickX = source.gamepad.axes[2];
+                    rightStickY = source.gamepad.axes[3];
+                }
+                // Configuration 2: axes[0] and axes[1] (some controllers)
+                else if (source.gamepad.axes.length >= 2) {
+                    rightStickX = source.gamepad.axes[0];
+                    rightStickY = source.gamepad.axes[1];
                 }
 
-                // Analog steering using thumbstick X-axis
-                if (Math.abs(rightStickX) > deadzone) {
-                    // Apply steering multiplier and clamp between -1 and 1
-                    window.vrThumbstickSteering = Math.max(-1, Math.min(1, -rightStickX * steeringMultiplier));
+                // If we have valid axis values, process them
+                if (rightStickX !== undefined && rightStickY !== undefined) {
+                    const deadzone = 0.1; // Reduced deadzone for better sensitivity
+                    const steeringMultiplier = 1.5; // Make steering more responsive
 
-                    // Also set digital states for compatibility
-                    joystickState.left = rightStickX < 0;
-                    joystickState.right = rightStickX > 0;
-
-                    if (Math.abs(rightStickX) > 0.5) {
-                        console.log(`Right thumbstick X: ${rightStickX.toFixed(2)} - ANALOG STEERING: ${window.vrThumbstickSteering.toFixed(2)}`);
+                    // Log thumbstick detection for debugging
+                    if (Math.abs(rightStickX) > deadzone || Math.abs(rightStickY) > deadzone) {
+                        console.log(`Thumbstick detected: X=${rightStickX.toFixed(3)}, Y=${rightStickY.toFixed(3)} (using axes ${source.gamepad.axes.length >= 4 ? '[2,3]' : '[0,1]'})`);
                     }
-                } else {
-                    // Clear analog steering when stick is neutral
-                    window.vrThumbstickSteering = undefined;
 
-                    // Reset digital steering if no button inputs are active
-                    if (!joystickState.left && !joystickState.right) {
-                        joystickState.left = false;
-                        joystickState.right = false;
+                    // Thumbstick Y-axis: Up = negative (accelerate), Down = positive (decelerate)
+                    if (rightStickY < -deadzone) {
+                        joystickState.up = true;
+                        thumbstickActive = true;
+                        console.log(`Right thumbstick UP: ${rightStickY.toFixed(3)} - ACCELERATING`);
+                    } else if (rightStickY > deadzone) {
+                        joystickState.down = true;
+                        thumbstickActive = true;
+                        console.log(`Right thumbstick DOWN: ${rightStickY.toFixed(3)} - DECELERATING`);
+                    } else {
+                        // Reset acceleration/deceleration if thumbstick is neutral
+                        if (!triggerPressed) {
+                            joystickState.up = false;
+                        }
+                        joystickState.down = false;
+                    }
+
+                    // Analog steering using thumbstick X-axis
+                    if (Math.abs(rightStickX) > deadzone) {
+                        // Apply steering multiplier and clamp between -1 and 1
+                        window.vrThumbstickSteering = Math.max(-1, Math.min(1, -rightStickX * steeringMultiplier));
+
+                        // Also set digital states for compatibility
+                        joystickState.left = rightStickX < 0;
+                        joystickState.right = rightStickX > 0;
+
+                        console.log(`Right thumbstick X: ${rightStickX.toFixed(3)} - ANALOG STEERING: ${window.vrThumbstickSteering.toFixed(3)}`);
+                    } else {
+                        // Clear analog steering when stick is neutral
+                        window.vrThumbstickSteering = undefined;
+
+                        // Reset digital steering if no button inputs are active
+                        if (!joystickState.left && !joystickState.right) {
+                            joystickState.left = false;
+                            joystickState.right = false;
+                        }
                     }
                 }
             }
