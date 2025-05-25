@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blood Cell Classifier</title>
+  <title>Blood Cell Classifier - AI-Powered Medical Image Analysis</title>
   <style>
-    body, html {
+    body,
+    html {
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: #fff;
-      text-align: center;
+      line-height: 1.6;
     }
+
     .background-video {
       position: fixed;
       top: 0;
@@ -23,64 +25,229 @@
       object-fit: cover;
       z-index: -1;
     }
-    .content {
+
+    .container {
       position: relative;
       z-index: 1;
-      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
     }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
     h1 {
-      font-size: 2em;
+      font-size: 2.8em;
       margin-bottom: 0.5em;
+      background: linear-gradient(45deg, #00d8ff, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+
+    .subtitle {
+      font-size: 1.2em;
+      color: #e0e0e0;
+      margin-bottom: 20px;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .upload-section {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .blood-cells-info {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-title {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+      color: #00d8ff;
+      border-bottom: 2px solid #00d8ff;
+      padding-bottom: 10px;
+    }
+
     #upload-area {
-      border: 2px dashed #fff;
-      border-radius: 10px;
+      border: 3px dashed #00d8ff;
+      border-radius: 15px;
       padding: 40px;
-      background-color: rgba(0, 0, 0, 0.6);
-      max-width: 400px;
-      margin: 20px auto;
+      background-color: rgba(0, 216, 255, 0.1);
       cursor: pointer;
-      transition: border-color 0.3s;
+      transition: all 0.3s ease;
+      text-align: center;
     }
+
     #upload-area:hover {
-      border-color: #00d8ff;
+      border-color: #ff6b6b;
+      background-color: rgba(255, 107, 107, 0.1);
+      transform: translateY(-2px);
     }
+
     #upload-area input {
       display: none;
     }
+
+    .upload-text {
+      font-size: 1.1em;
+      margin: 0;
+      color: #fff;
+    }
+
     #preview-image {
       margin-top: 20px;
       max-width: 100%;
       height: auto;
       border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
+
     #label-container {
       margin-top: 20px;
       font-size: 1.1em;
-      background-color: rgba(0, 0, 0, 0.6);
-      padding: 10px;
+      background-color: rgba(0, 216, 255, 0.2);
+      padding: 15px;
       border-radius: 10px;
+      border: 1px solid #00d8ff;
+    }
+
+    .blood-cell-type {
+      margin-bottom: 25px;
+      padding: 15px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      border-left: 4px solid #00d8ff;
+    }
+
+    .blood-cell-type h3 {
+      margin: 0 0 10px 0;
+      color: #00d8ff;
+      font-size: 1.2em;
+    }
+
+    .blood-cell-type p {
+      margin: 0;
+      color: #e0e0e0;
+      font-size: 0.95em;
+    }
+
+    .instructions {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .instruction-step {
       display: inline-block;
+      margin: 0 15px;
+      padding: 10px 20px;
+      background-color: rgba(0, 216, 255, 0.2);
+      border-radius: 25px;
+      border: 1px solid #00d8ff;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 2.2em;
+      }
+
+      .container {
+        padding: 15px;
+      }
+
+      .instruction-step {
+        display: block;
+        margin: 10px 0;
+      }
     }
   </style>
 </head>
+
 <body>
   <video class="background-video" autoplay loop muted playsinline poster="Assets/BloodCellBackground.png">
     <source src="Assets/BloodCellBackground.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
 
-  <div class="content">
-    <h1>Blood Cell Image Classifier</h1>
-    <p>Upload an image of a blood cell to classify its type using AI.</p>
-
-    <div id="upload-area" onclick="document.getElementById('image-upload').click()">
-      <p>Click or Drag an Image Here</p>
-      <input type="file" id="image-upload" accept="image/*">
+  <div class="container">
+    <div class="header">
+      <h1>Blood Cell Classifier</h1>
+      <p class="subtitle">AI-Powered Medical Image Analysis for Blood Cell Type Identification</p>
+      <p>This advanced machine learning tool classifies blood cell images into four distinct white blood cell types,
+        assisting in medical diagnosis and research.</p>
     </div>
 
-    <img id="preview-image" src="" alt="Preview" style="display: none;">
-    <div id="label-container"></div>
+    <div class="instructions">
+      <div class="instruction-step">1. Upload Image</div>
+      <div class="instruction-step">2. AI Analysis</div>
+      <div class="instruction-step">3. View Results</div>
+    </div>
+
+    <div class="main-content">
+      <div class="upload-section">
+        <h2 class="section-title">Image Upload & Analysis</h2>
+        <div id="upload-area" onclick="document.getElementById('image-upload').click()">
+          <p class="upload-text">📁 Click or Drag Blood Cell Image Here</p>
+          <input type="file" id="image-upload" accept="image/*">
+        </div>
+        <img id="preview-image" src="" alt="Preview" style="display: none;">
+        <div id="label-container"></div>
+      </div>
+
+      <div class="blood-cells-info">
+        <h2 class="section-title">Blood Cell Types</h2>
+
+        <div class="blood-cell-type">
+          <h3>🔴 Eosinophils</h3>
+          <p>White blood cells that combat parasites and are involved in allergic responses. They are characterized by
+            bright red granules in their cytoplasm and typically make up 1-4% of white blood cells.</p>
+        </div>
+
+        <div class="blood-cell-type">
+          <h3>🔵 Lymphocytes</h3>
+          <p>Small white blood cells central to immune response. They produce antibodies or directly attack infected
+            cells. Include B-cells, T-cells, and NK cells, comprising 20-40% of white blood cells.</p>
+        </div>
+
+        <div class="blood-cell-type">
+          <h3>🟢 Monocytes</h3>
+          <p>The largest type of white blood cell, responsible for digesting pathogens and cellular debris. They
+            transform into macrophages when entering tissues and represent 2-8% of white blood cells.</p>
+        </div>
+
+        <div class="blood-cell-type">
+          <h3>🟡 Neutrophils</h3>
+          <p>The most abundant white blood cells (50-70%), serving as first responders to infection. They engulf and
+            kill microbes through phagocytosis and play a crucial role in innate immunity.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
@@ -105,19 +272,59 @@
       img.style.display = 'block';
       img.onload = async () => {
         const prediction = await model.predict(img);
-        labelContainer.innerHTML = '';
+        labelContainer.innerHTML = '<h3 style="margin-top: 0; color: #00d8ff;">Classification Results:</h3>';
+
+        // Sort predictions by probability
+        const sortedPredictions = prediction.sort((a, b) => b.probability - a.probability);
+
         for (let i = 0; i < maxPredictions; i++) {
-          const p = prediction[i];
-          const result = `${p.className}: ${(p.probability * 100).toFixed(2)}%`;
+          const p = sortedPredictions[i];
+          const percentage = (p.probability * 100).toFixed(1);
           const div = document.createElement("div");
-          div.textContent = result;
+          div.style.cssText = `
+            margin: 8px 0;
+            padding: 8px 12px;
+            background-color: rgba(255, 255, 255, ${p.probability * 0.2});
+            border-radius: 8px;
+            border-left: 4px solid ${i === 0 ? '#00d8ff' : '#666'};
+            font-weight: ${i === 0 ? 'bold' : 'normal'};
+          `;
+          div.textContent = `${p.className}: ${percentage}%`;
           labelContainer.appendChild(div);
         }
       };
     }
 
+    // Enhanced drag and drop functionality
+    const uploadArea = document.getElementById("upload-area");
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#ff6b6b';
+      uploadArea.style.backgroundColor = 'rgba(255, 107, 107, 0.2)';
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#00d8ff';
+      uploadArea.style.backgroundColor = 'rgba(0, 216, 255, 0.1)';
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#00d8ff';
+      uploadArea.style.backgroundColor = 'rgba(0, 216, 255, 0.1)';
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        document.getElementById('image-upload').files = files;
+        handleImageUpload({ target: { files: files } });
+      }
+    });
+
     document.getElementById("image-upload").addEventListener("change", handleImageUpload);
     window.addEventListener("DOMContentLoaded", loadModel);
   </script>
 </body>
+
 </html>
