@@ -1173,25 +1173,6 @@ function checkXButtonState() {
     let leftTriggerPressed = false;
     let rightTriggerPressed = false;
 
-    // Try to get the current frame for proper WebXR input access
-    const frame = renderer.xr.getFrame();
-    if (frame && session.inputSources) {
-        // Try accessing thumbstick through WebXR frame-based input
-        for (const source of session.inputSources) {
-            if (source.handedness === 'right' && source.gamepad) {
-                try {
-                    // Try to get input source state through the frame
-                    const inputSourceState = frame.getInputSourceState ? frame.getInputSourceState(source) : null;
-                    if (inputSourceState) {
-                        console.log('WebXR input source state available:', Object.keys(inputSourceState));
-                    }
-                } catch (e) {
-                    // This method might not exist
-                }
-            }
-        }
-    }
-
     for (const source of session.inputSources) {
         // Debug WebXR input source properties to find thumbstick access
         if (performance.now() % 2000 < 20) { // Log every ~2 seconds
