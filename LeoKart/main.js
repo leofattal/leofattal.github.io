@@ -1197,6 +1197,13 @@ function checkXButtonState() {
 
         // Check if it's a gamepad
         if (source.gamepad && source.handedness === 'left') {
+            // Debug left controller axes too
+            if (performance.now() % 1000 < 20) {
+                console.log(`Left controller gamepad: buttons=${source.gamepad.buttons.length}, axes=${source.gamepad.axes ? source.gamepad.axes.length : 'undefined'}`);
+                if (source.gamepad.axes && source.gamepad.axes.length > 0) {
+                    console.log(`Left controller all axes:`, source.gamepad.axes.map((axis, idx) => `[${idx}]=${axis.toFixed(3)}`).join(', '));
+                }
+            }
             // X button (index 4) for turning left
             const xButton = source.gamepad.buttons[4];
             // Y button (index 5) for turning right
@@ -1224,14 +1231,43 @@ function checkXButtonState() {
             } else {
                 joystickState.down = false;
             }
+
+            // Check left controller thumbstick too (in case thumbstick is on left controller)
+            if (source.gamepad.axes && source.gamepad.axes.length >= 2) {
+                const leftStickX = source.gamepad.axes[0]; // X-axis
+                const leftStickY = source.gamepad.axes[1]; // Y-axis
+                const deadzone = 0.1;
+
+                if (Math.abs(leftStickX) > deadzone || Math.abs(leftStickY) > deadzone) {
+                    console.log(`LEFT controller thumbstick: X=${leftStickX.toFixed(3)}, Y=${leftStickY.toFixed(3)}`);
+
+                    // Test if left controller thumbstick controls movement
+                    if (leftStickY < -deadzone) {
+                        joystickState.up = true;
+                        console.log("LEFT thumbstick UP - ACCELERATING");
+                    } else if (leftStickY > deadzone) {
+                        joystickState.down = true;
+                        console.log("LEFT thumbstick DOWN - DECELERATING");
+                    }
+
+                    if (leftStickX < -deadzone) {
+                        joystickState.left = true;
+                        console.log("LEFT thumbstick LEFT - TURNING LEFT");
+                    } else if (leftStickX > deadzone) {
+                        joystickState.right = true;
+                        console.log("LEFT thumbstick RIGHT - TURNING RIGHT");
+                    }
+                }
+            }
         }
 
         // Also check right controller buttons and thumbstick
         if (source.gamepad && source.handedness === 'right') {
             // Debug gamepad axes availability (log every few seconds)
-            if (performance.now() % 2000 < 20) {
+            if (performance.now() % 1000 < 20) {
                 console.log(`Right controller gamepad: buttons=${source.gamepad.buttons.length}, axes=${source.gamepad.axes ? source.gamepad.axes.length : 'undefined'}`);
                 if (source.gamepad.axes && source.gamepad.axes.length > 0) {
+                    // Show ALL axes values continuously to see ANY changes
                     console.log(`Right controller all axes:`, source.gamepad.axes.map((axis, idx) => `[${idx}]=${axis.toFixed(3)}`).join(', '));
                 } else {
                     console.log('Right controller: NO AXES DETECTED');
