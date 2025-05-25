@@ -113,12 +113,19 @@
       color: #fff;
     }
 
-    #preview-image {
+    .image-preview-container {
       margin-top: 20px;
+      text-align: center;
+    }
+
+    #preview-image {
       max-width: 100%;
+      max-height: 300px;
       height: auto;
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      display: block;
+      margin: 0 auto;
     }
 
     #label-container {
@@ -128,6 +135,32 @@
       padding: 15px;
       border-radius: 10px;
       border: 1px solid #00d8ff;
+    }
+
+    .prediction-loader {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #00d8ff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .blood-cell-type {
@@ -217,7 +250,16 @@
           <p class="upload-text">📁 Click or Drag Blood Cell Image Here</p>
           <input type="file" id="image-upload" accept="image/*">
         </div>
-        <img id="preview-image" src="" alt="Preview" style="display: none;">
+
+        <div class="image-preview-container">
+          <img id="preview-image" src="" alt="Preview" style="display: none;">
+        </div>
+
+        <div class="prediction-loader" id="prediction-loader">
+          <div class="spinner"></div>
+          <p style="color: #00d8ff; margin: 0;">Analyzing blood cell...</p>
+        </div>
+
         <div id="label-container"></div>
       </div>
 
@@ -252,54 +294,124 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script>
-    const URL = "https://teachablemachine.withgoogle.com/models/jlWFXlOwO/"; // <-- Replace with your model URL
-    let model, labelContainer, maxPredictions;
+    const MODEL_URL = "web_model/model.json";
+
+    // Define the class labels for your blood cell types
+    const CLASS_LABELS = [
+      "Eosinophils",
+      "Lymphocytes",
+      "Monocytes",
+      "Neutrophils"
+    ];
+
+    let model, labelContainer;
 
     async function loadModel() {
       try {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+        model = await tf.loadGraphModel(MODEL_URL);
         labelContainer = document.getElementById("label-container");
         console.log("Model loaded successfully!");
+        console.log("Model:", model);
       } catch (error) {
         console.error("Error loading model:", error);
         const container = document.getElementById("label-container");
-        container.innerHTML = '<div style="color: #ff6b6b;">Error loading AI model. Please check your internet connection.</div>';
+        container.innerHTML = '<div style="color: #ff6b6b;">Error loading AI model. Please check the model files.</div>';
       }
+    }
+
+    // Preprocess image for the model
+    function preprocessImage(imgElement) {
+      return tf.tidy(() => {
+        // Convert image to tensor
+        let tensor = tf.browser.fromPixels(imgElement);
+
+        // Resize to model input size (usually 224x224 for image classification)
+        const resized = tf.image.resizeBilinear(tensor, [224, 224]);
+
+        // Normalize pixel values to [0, 1]
+        const normalized = resized.div(255.0);
+
+        // Add batch dimension
+        const batched = normalized.expandDims(0);
+
+        return batched;
+      });
     }
 
     async function handleImageUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
 
+      if (!model) {
+        labelContainer.innerHTML = '<div style="color: #ff6b6b;">Model not loaded yet. Please wait...</div>';
+        return;
+      }
+
       const img = document.getElementById("preview-image");
       img.src = window.URL.createObjectURL(file);
       img.style.display = 'block';
+
       img.onload = async () => {
-        const prediction = await model.predict(img);
-        labelContainer.innerHTML = '<h3 style="margin-top: 0; color: #00d8ff;">Classification Results:</h3>';
+        try {
+          // Show loader and hide previous results
+          const loader = document.getElementById('prediction-loader');
+          loader.style.display = 'block';
+          labelContainer.innerHTML = '';
 
-        // Sort predictions by probability
-        const sortedPredictions = prediction.sort((a, b) => b.probability - a.probability);
+          // Small delay to ensure UI updates
+          await new Promise(resolve => setTimeout(resolve, 100));
 
-        for (let i = 0; i < maxPredictions; i++) {
-          const p = sortedPredictions[i];
-          const percentage = (p.probability * 100).toFixed(1);
-          const div = document.createElement("div");
-          div.style.cssText = `
-            margin: 8px 0;
-            padding: 8px 12px;
-            background-color: rgba(255, 255, 255, ${p.probability * 0.2});
-            border-radius: 8px;
-            border-left: 4px solid ${i === 0 ? '#00d8ff' : '#666'};
-            font-weight: ${i === 0 ? 'bold' : 'normal'};
-          `;
-          div.textContent = `${p.className}: ${percentage}%`;
-          labelContainer.appendChild(div);
+          // Preprocess the image
+          const preprocessed = preprocessImage(img);
+
+          // Make prediction
+          const prediction = model.predict(preprocessed);
+
+          // Get prediction data
+          const predictionData = await prediction.data();
+
+          // Clean up tensors
+          preprocessed.dispose();
+          prediction.dispose();
+
+          // Create array of predictions with class names
+          const predictions = Array.from(predictionData).map((probability, index) => ({
+            className: CLASS_LABELS[index],
+            probability: probability
+          }));
+
+          // Sort by probability (highest first)
+          const sortedPredictions = predictions.sort((a, b) => b.probability - a.probability);
+
+          // Hide loader
+          loader.style.display = 'none';
+
+          // Display results
+          labelContainer.innerHTML = '<h3 style="margin-top: 0; color: #00d8ff;">Classification Results:</h3>';
+
+          for (let i = 0; i < sortedPredictions.length; i++) {
+            const p = sortedPredictions[i];
+            const percentage = (p.probability * 100).toFixed(1);
+            const div = document.createElement("div");
+            div.style.cssText = `
+              margin: 8px 0;
+              padding: 8px 12px;
+              background-color: rgba(255, 255, 255, ${p.probability * 0.2});
+              border-radius: 8px;
+              border-left: 4px solid ${i === 0 ? '#00d8ff' : '#666'};
+              font-weight: ${i === 0 ? 'bold' : 'normal'};
+            `;
+            div.textContent = `${p.className}: ${percentage}%`;
+            labelContainer.appendChild(div);
+          }
+
+        } catch (error) {
+          console.error("Prediction error:", error);
+          // Hide loader on error
+          const loader = document.getElementById('prediction-loader');
+          loader.style.display = 'none';
+          labelContainer.innerHTML = '<div style="color: #ff6b6b;">Error during prediction. Please try again.</div>';
         }
       };
     }
