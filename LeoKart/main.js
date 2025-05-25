@@ -18,7 +18,7 @@ let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
-let scaleFactor = 0.03;
+let scaleFactor = 0.003;
 const acceleration = 0.02 * scaleFactor, deceleration = 0.01 * scaleFactor, maxSpeed = 3.5 * scaleFactor, friction = 0.005 * scaleFactor, turnSpeed = 0.03, gravity = -2 * scaleFactor;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
@@ -811,14 +811,21 @@ function render() {
         // Update VR camera pose to follow the kart using WebXR-OpenXR Bridge
         if (window.WebXROpenXRBridge && kart && camera.userData.vrMode) {
             try {
-                // Calculate position 2m behind the kart in local kart coordinates
-                const backwardOffset = new THREE.Vector3(0, 0, 2); // 2m behind in local space
+                // Calculate position 2m behind and 0.8m above the kart in local kart coordinates
+                const cameraOffset = new THREE.Vector3(0, 0.8, 2); // 2m behind, 0.8m above in local space
 
                 // Transform the offset to world space using kart's rotation
-                backwardOffset.applyQuaternion(kart.quaternion);
+                cameraOffset.applyQuaternion(kart.quaternion);
 
                 // Calculate world position (kart position + rotated offset)
-                const cameraWorldPos = kart.position.clone().add(backwardOffset);
+                const cameraWorldPos = kart.position.clone().add(cameraOffset);
+
+                // Create a downward tilt for better road visibility
+                const downwardTilt = new THREE.Quaternion();
+                downwardTilt.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.15); // 15 degrees downward tilt
+
+                // Combine kart rotation with downward tilt
+                const finalOrientation = kart.quaternion.clone().multiply(downwardTilt);
 
                 // Prepare pose object for the extension
                 const headPose = {
@@ -828,10 +835,10 @@ function render() {
                         z: cameraWorldPos.z
                     },
                     orientation: {
-                        x: kart.quaternion.x,
-                        y: kart.quaternion.y,
-                        z: kart.quaternion.z,
-                        w: kart.quaternion.w
+                        x: finalOrientation.x,
+                        y: finalOrientation.y,
+                        z: finalOrientation.z,
+                        w: finalOrientation.w
                     }
                 };
 
@@ -860,9 +867,21 @@ function render() {
         }
 
         steer = 0;
-        // Restore original velocity check
-        if ((keyboard['ArrowLeft'] || joystickState.left) && velocity !== 0 && isOnGround) steer = turnSpeed * (velocity / maxSpeed);
-        if ((keyboard['ArrowRight'] || joystickState.right) && velocity !== 0 && isOnGround) steer = -turnSpeed * (velocity / maxSpeed);
+        // Handle steering for both digital and analog inputs
+        if (velocity !== 0 && isOnGround) {
+            // Digital steering (keyboard and VR buttons)
+            if (keyboard['ArrowLeft'] || joystickState.left) {
+                steer = turnSpeed * (velocity / maxSpeed);
+            }
+            if (keyboard['ArrowRight'] || joystickState.right) {
+                steer = -turnSpeed * (velocity / maxSpeed);
+            }
+
+            // Analog VR thumbstick steering (overrides digital if active)
+            if (isVRMode && window.vrThumbstickSteering !== undefined) {
+                steer = window.vrThumbstickSteering * turnSpeed * (velocity / maxSpeed);
+            }
+        }
 
 
 
@@ -1215,7 +1234,8 @@ function checkXButtonState() {
                 const rightStickX = source.gamepad.axes[2]; // Left/Right steering
                 const rightStickY = source.gamepad.axes[3]; // Up/Down acceleration/deceleration
 
-                const deadzone = 0.2; // Ignore small movements
+                const deadzone = 0.1; // Reduced deadzone for better sensitivity
+                const steeringMultiplier = 1.5; // Make steering more responsive
 
                 // Thumbstick Y-axis: Up = negative (accelerate), Down = positive (decelerate)
                 if (rightStickY < -deadzone) {
@@ -1238,19 +1258,23 @@ function checkXButtonState() {
                     joystickState.down = false;
                 }
 
-                // Thumbstick X-axis: Left = negative, Right = positive
-                if (rightStickX < -deadzone) {
-                    joystickState.left = true;
+                // Analog steering using thumbstick X-axis
+                if (Math.abs(rightStickX) > deadzone) {
+                    // Apply steering multiplier and clamp between -1 and 1
+                    window.vrThumbstickSteering = Math.max(-1, Math.min(1, -rightStickX * steeringMultiplier));
+
+                    // Also set digital states for compatibility
+                    joystickState.left = rightStickX < 0;
+                    joystickState.right = rightStickX > 0;
+
                     if (Math.abs(rightStickX) > 0.5) {
-                        console.log(`Right thumbstick LEFT: ${rightStickX.toFixed(2)} - TURNING LEFT`);
-                    }
-                } else if (rightStickX > deadzone) {
-                    joystickState.right = true;
-                    if (Math.abs(rightStickX) > 0.5) {
-                        console.log(`Right thumbstick RIGHT: ${rightStickX.toFixed(2)} - TURNING RIGHT`);
+                        console.log(`Right thumbstick X: ${rightStickX.toFixed(2)} - ANALOG STEERING: ${window.vrThumbstickSteering.toFixed(2)}`);
                     }
                 } else {
-                    // Reset steering if thumbstick is neutral (but don't override button inputs)
+                    // Clear analog steering when stick is neutral
+                    window.vrThumbstickSteering = undefined;
+
+                    // Reset digital steering if no button inputs are active
                     if (!joystickState.left && !joystickState.right) {
                         joystickState.left = false;
                         joystickState.right = false;
