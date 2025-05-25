@@ -323,18 +323,9 @@
     // Preprocess image for EfficientNet model
     function preprocessImage(imgElement) {
       return tf.tidy(() => {
-        // Convert image to tensor
         let tensor = tf.browser.fromPixels(imgElement);
-
-        // Resize to model input size (224x224)
-        const resized = tf.image.resizeBilinear(tensor, [224, 224]);
-
-        // Normalize to [-1, 1] as expected by EfficientNet
-        const normalized = resized.toFloat().div(127.5).sub(1.0);
-
-        // Add batch dimension
-        const batched = normalized.expandDims(0);
-
+        let resized = tf.image.resizeBilinear(tensor, [224, 224]);
+        let batched = resized.expandDims(0);  // No normalization
         return batched;
       });
     }
