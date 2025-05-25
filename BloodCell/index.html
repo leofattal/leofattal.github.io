@@ -251,17 +251,25 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script>
     const URL = "https://teachablemachine.withgoogle.com/models/jlWFXlOwO/"; // <-- Replace with your model URL
     let model, labelContainer, maxPredictions;
 
     async function loadModel() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-      labelContainer = document.getElementById("label-container");
+      try {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        labelContainer = document.getElementById("label-container");
+        console.log("Model loaded successfully!");
+      } catch (error) {
+        console.error("Error loading model:", error);
+        const container = document.getElementById("label-container");
+        container.innerHTML = '<div style="color: #ff6b6b;">Error loading AI model. Please check your internet connection.</div>';
+      }
     }
 
     async function handleImageUpload(event) {
@@ -269,7 +277,7 @@
       if (!file) return;
 
       const img = document.getElementById("preview-image");
-      img.src = URL.createObjectURL(file);
+      img.src = window.URL.createObjectURL(file);
       img.style.display = 'block';
       img.onload = async () => {
         const prediction = await model.predict(img);
