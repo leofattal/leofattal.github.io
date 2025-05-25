@@ -1228,6 +1228,15 @@ function checkXButtonState() {
 
         // Also check right controller buttons and thumbstick
         if (source.gamepad && source.handedness === 'right') {
+            // Debug gamepad axes availability (log every few seconds)
+            if (performance.now() % 2000 < 20) {
+                console.log(`Right controller gamepad: buttons=${source.gamepad.buttons.length}, axes=${source.gamepad.axes ? source.gamepad.axes.length : 'undefined'}`);
+                if (source.gamepad.axes && source.gamepad.axes.length > 0) {
+                    console.log(`Right controller all axes:`, source.gamepad.axes.map((axis, idx) => `[${idx}]=${axis.toFixed(3)}`).join(', '));
+                } else {
+                    console.log('Right controller: NO AXES DETECTED');
+                }
+            }
             // Right trigger (try multiple indices) for acceleration
             const possibleTriggerIndices = [0, 2, 3, 4];
             let triggerPressed = false;
@@ -1242,19 +1251,34 @@ function checkXButtonState() {
 
             // Handle thumbstick inputs - try different possible axis indices
             let thumbstickActive = false;
-            if (source.gamepad.axes && source.gamepad.axes.length >= 2) {
+
+            // Try to get axes from gamepad object, with fallback to session.inputSources
+            let gamepadAxes = source.gamepad.axes;
+            if (!gamepadAxes || gamepadAxes.length === 0) {
+                // Fallback: try to get gamepad from session.inputSources
+                const sessionSources = session.inputSources;
+                for (let i = 0; i < sessionSources.length; i++) {
+                    if (sessionSources[i].handedness === 'right' && sessionSources[i].gamepad && sessionSources[i].gamepad.axes) {
+                        gamepadAxes = sessionSources[i].gamepad.axes;
+                        console.log(`Using fallback gamepad access for axes: ${gamepadAxes.length} axes found`);
+                        break;
+                    }
+                }
+            }
+
+            if (gamepadAxes && gamepadAxes.length >= 2) {
                 // Try common thumbstick axis configurations
                 let rightStickX, rightStickY;
 
                 // Configuration 1: axes[2] and axes[3] (most common)
-                if (source.gamepad.axes.length >= 4) {
-                    rightStickX = source.gamepad.axes[2];
-                    rightStickY = source.gamepad.axes[3];
+                if (gamepadAxes.length >= 4) {
+                    rightStickX = gamepadAxes[2];
+                    rightStickY = gamepadAxes[3];
                 }
                 // Configuration 2: axes[0] and axes[1] (some controllers)
-                else if (source.gamepad.axes.length >= 2) {
-                    rightStickX = source.gamepad.axes[0];
-                    rightStickY = source.gamepad.axes[1];
+                else if (gamepadAxes.length >= 2) {
+                    rightStickX = gamepadAxes[0];
+                    rightStickY = gamepadAxes[1];
                 }
 
                 // If we have valid axis values, process them
@@ -1264,7 +1288,7 @@ function checkXButtonState() {
 
                     // Log thumbstick detection for debugging
                     if (Math.abs(rightStickX) > deadzone || Math.abs(rightStickY) > deadzone) {
-                        console.log(`Thumbstick detected: X=${rightStickX.toFixed(3)}, Y=${rightStickY.toFixed(3)} (using axes ${source.gamepad.axes.length >= 4 ? '[2,3]' : '[0,1]'})`);
+                        console.log(`Thumbstick detected: X=${rightStickX.toFixed(3)}, Y=${rightStickY.toFixed(3)} (using axes ${gamepadAxes.length >= 4 ? '[2,3]' : '[0,1]'})`);
                     }
 
                     // Thumbstick Y-axis: Up = negative (accelerate), Down = positive (decelerate)
