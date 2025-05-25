@@ -869,12 +869,23 @@ function render() {
         steer = 0;
         // Handle steering for both digital and analog inputs
         if (velocity !== 0 && isOnGround) {
-            // Digital steering (keyboard and VR buttons)
-            if (keyboard['ArrowLeft'] || joystickState.left) {
+            // Keyboard steering (standard sensitivity)
+            if (keyboard['ArrowLeft']) {
                 steer = turnSpeed * (velocity / maxSpeed);
             }
-            if (keyboard['ArrowRight'] || joystickState.right) {
+            if (keyboard['ArrowRight']) {
                 steer = -turnSpeed * (velocity / maxSpeed);
+            }
+
+            // VR button steering (increased sensitivity to match arrow key feel)
+            const vrSteerMultiplier = 1.5; // Make VR button steering 50% more sensitive
+            if (joystickState.left && isVRMode) {
+                steer = turnSpeed * (velocity / maxSpeed) * vrSteerMultiplier;
+                console.log(`VR button steering LEFT: steer=${steer.toFixed(3)}`);
+            }
+            if (joystickState.right && isVRMode) {
+                steer = -turnSpeed * (velocity / maxSpeed) * vrSteerMultiplier;
+                console.log(`VR button steering RIGHT: steer=${steer.toFixed(3)}`);
             }
 
             // Analog VR thumbstick steering (overrides digital if active)
