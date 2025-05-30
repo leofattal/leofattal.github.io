@@ -18,7 +18,7 @@ let numCoins = 0;
 let velocity = 0, verticalVelocity = 0;
 let joystickState = { up: false, down: false, left: false, right: false };
 let joystickContainer;
-let scaleFactor = 0.03;
+let scaleFactor = 0.01;
 const acceleration = 0.02 * scaleFactor, deceleration = 0.01 * scaleFactor, maxSpeed = 3.5 * scaleFactor, friction = 0.005 * scaleFactor, turnSpeed = 0.03, gravity = -2 * scaleFactor;
 let direction = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 let isOnGround = true, steer = 0, obstacleNormal = null, isLanding = false, oldZ = 0;
