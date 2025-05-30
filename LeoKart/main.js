@@ -638,7 +638,7 @@ function loadModels() {
         scene.add(kart);
 
         // Initial camera position (far away)
-        const startPosition = { x: 0, y: 10000 * scaleFactor, z: 10000 * scaleFactor };
+        const startPosition = { x: 0, y: 10000, z: 10000};
         camera.position.set(startPosition.x, startPosition.y, startPosition.z);
 
         // Target camera position (close to kart)
