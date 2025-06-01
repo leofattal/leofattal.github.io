@@ -39,7 +39,7 @@ let controllerGrips = [];
 let worldContainer;
 
 // VR-specific variables for the new approach
-let vrReferencePosition = new THREE.Vector3(0, 0, -3); // Where kart should appear in VR space
+let vrReferencePosition = new THREE.Vector3(0, 1, -2); // Kart appears 2m in front of XR camera
 let vrReferenceRotation = new THREE.Euler(0, 0, 0); // Reference rotation for kart in VR
 let kartOriginalTransform = { position: new THREE.Vector3(), rotation: new THREE.Euler() }; // Store original kart transform
 
@@ -1061,42 +1061,13 @@ function setupVRButton() {
         isVRMode = true;
         vrToggle.textContent = 'Exit VR';
 
-        // NEW APPROACH: Set up VR camera once at desired position
+        // NEW APPROACH: Let XR camera stay in natural position, position world/kart to appear in front
         if (kart) {
-            // Remove camera from kart and add directly to scene
+            // Remove camera from kart and add directly to scene (camera stays at natural XR position)
             kart.remove(camera);
             scene.add(camera);
 
-            // Position camera at the VR reference position (behind where kart should appear)
-            camera.position.copy(vrReferencePosition);
-            camera.position.y += 0.8; // Slightly above for better view
-            camera.position.z += 2; // 2 units behind kart
-
-            // Store this as the fixed VR camera position
-            console.log("VR camera positioned at:", camera.position);
-
-            // Use WebXR-OpenXR Bridge if available to set camera position once
-            if (window.WebXROpenXRBridge) {
-                const initialCameraPose = {
-                    position: {
-                        x: camera.position.x,
-                        y: camera.position.y,
-                        z: camera.position.z
-                    },
-                    orientation: {
-                        x: 0,
-                        y: 0,
-                        z: 0,
-                        w: 1
-                    }
-                };
-
-                WebXROpenXRBridge.setHeadPose(initialCameraPose).then(() => {
-                    console.log("VR camera pose set via WebXR-OpenXR Bridge");
-                }).catch(error => {
-                    console.log("WebXR-OpenXR Bridge not available:", error.message);
-                });
-            }
+            console.log("VR mode: Kart will appear 2m in front of XR camera");
         }
 
         // Hide UI elements in VR mode
