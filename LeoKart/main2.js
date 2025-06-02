@@ -1084,6 +1084,8 @@ function checkXButtonState() {
     const session = renderer.xr.getSession();
     if (!session) return;
 
+    let anyVRInputDetected = false;
+
     for (const source of session.inputSources) {
         if (source.gamepad && source.handedness === 'left') {
             // X button (index 4) for turning left
@@ -1095,18 +1097,21 @@ function checkXButtonState() {
 
             if (xButton && xButton.pressed) {
                 joystickState.left = true;
+                anyVRInputDetected = true;
             } else {
                 joystickState.left = false;
             }
 
             if (yButton && yButton.pressed) {
                 joystickState.right = true;
+                anyVRInputDetected = true;
             } else {
                 joystickState.right = false;
             }
 
             if (leftTrigger && leftTrigger.pressed) {
                 joystickState.down = true;
+                anyVRInputDetected = true;
             } else {
                 joystickState.down = false;
             }
@@ -1118,6 +1123,7 @@ function checkXButtonState() {
                 const deadzone = 0.1;
 
                 if (Math.abs(leftStickY) > deadzone) {
+                    anyVRInputDetected = true;
                     if (leftStickY < -deadzone) {
                         joystickState.up = true;
                     } else if (leftStickY > deadzone) {
@@ -1131,6 +1137,7 @@ function checkXButtonState() {
                 }
 
                 if (Math.abs(leftStickX) > deadzone) {
+                    anyVRInputDetected = true;
                     if (leftStickX < -deadzone) {
                         joystickState.left = true;
                     } else if (leftStickX > deadzone) {
@@ -1150,6 +1157,7 @@ function checkXButtonState() {
                 if (source.gamepad.buttons[idx] && source.gamepad.buttons[idx].pressed) {
                     triggerPressed = true;
                     joystickState.up = true;
+                    anyVRInputDetected = true;
                     break;
                 }
             }
@@ -1172,6 +1180,7 @@ function checkXButtonState() {
 
                 // Thumbstick Y-axis for acceleration/deceleration
                 if (Math.abs(rightStickY) > deadzone) {
+                    anyVRInputDetected = true;
                     if (rightStickY < -deadzone) {
                         joystickState.up = true;
                     } else if (rightStickY > deadzone) {
@@ -1181,6 +1190,7 @@ function checkXButtonState() {
 
                 // Analog steering using thumbstick X-axis
                 if (Math.abs(rightStickX) > deadzone) {
+                    anyVRInputDetected = true;
                     window.vrThumbstickSteering = Math.max(-1, Math.min(1, -rightStickX * steeringMultiplier));
                     joystickState.left = rightStickX < 0;
                     joystickState.right = rightStickX > 0;
@@ -1195,6 +1205,15 @@ function checkXButtonState() {
                 joystickState.up = false;
             }
         }
+    }
+
+    // Initialize audio and game when VR input is first detected (similar to keyboard/mobile)
+    if (anyVRInputDetected && !audioSource && startTime === null) {
+        console.log("VR input detected, initializing audio and game...");
+        setupAudio();
+        startTime = performance.now();
+        leaderboardDiv.style.display = 'none';
+        document.getElementById('game-logo').style.display = 'none';
     }
 }
 
