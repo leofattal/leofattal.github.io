@@ -1117,13 +1117,20 @@ function checkXButtonState() {
                 const leftStickY = source.gamepad.axes[1];
                 const deadzone = 0.1;
 
-                if (Math.abs(leftStickX) > deadzone || Math.abs(leftStickY) > deadzone) {
+                if (Math.abs(leftStickY) > deadzone) {
                     if (leftStickY < -deadzone) {
                         joystickState.up = true;
                     } else if (leftStickY > deadzone) {
                         joystickState.down = true;
                     }
+                } else {
+                    // Reset only if no other acceleration input is active
+                    if (!joystickState.up) {
+                        joystickState.up = false;
+                    }
+                }
 
+                if (Math.abs(leftStickX) > deadzone) {
                     if (leftStickX < -deadzone) {
                         joystickState.left = true;
                     } else if (leftStickX > deadzone) {
@@ -1142,12 +1149,12 @@ function checkXButtonState() {
             for (const idx of possibleTriggerIndices) {
                 if (source.gamepad.buttons[idx] && source.gamepad.buttons[idx].pressed) {
                     triggerPressed = true;
+                    joystickState.up = true;
                     break;
                 }
             }
 
             // Handle thumbstick inputs
-            let thumbstickActive = false;
             let rightStickX = 0, rightStickY = 0;
             let gamepadAxes = source.gamepad.axes;
 
@@ -1164,17 +1171,12 @@ function checkXButtonState() {
                 const steeringMultiplier = 1.5;
 
                 // Thumbstick Y-axis for acceleration/deceleration
-                if (rightStickY < -deadzone) {
-                    joystickState.up = true;
-                    thumbstickActive = true;
-                } else if (rightStickY > deadzone) {
-                    joystickState.down = true;
-                    thumbstickActive = true;
-                } else {
-                    if (!triggerPressed) {
-                        joystickState.up = false;
+                if (Math.abs(rightStickY) > deadzone) {
+                    if (rightStickY < -deadzone) {
+                        joystickState.up = true;
+                    } else if (rightStickY > deadzone) {
+                        joystickState.down = true;
                     }
-                    joystickState.down = false;
                 }
 
                 // Analog steering using thumbstick X-axis
@@ -1184,17 +1186,12 @@ function checkXButtonState() {
                     joystickState.right = rightStickX > 0;
                 } else {
                     window.vrThumbstickSteering = undefined;
-                    if (!joystickState.left && !joystickState.right) {
-                        joystickState.left = false;
-                        joystickState.right = false;
-                    }
                 }
             }
 
-            // Handle trigger button
-            if (triggerPressed && !thumbstickActive) {
-                joystickState.up = true;
-            } else if (!thumbstickActive) {
+            // Reset acceleration if no inputs are active
+            if (!triggerPressed &&
+                (!gamepadAxes || gamepadAxes.length < 2 || Math.abs(gamepadAxes[rightStickY < 0 ? 3 : 1]) <= 0.1)) {
                 joystickState.up = false;
             }
         }
