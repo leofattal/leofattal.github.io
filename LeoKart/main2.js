@@ -39,7 +39,7 @@ let controllerGrips = [];
 let worldContainer;
 
 // VR-specific variables for the new approach
-let vrReferencePosition = new THREE.Vector3(0, 1, -2); // Kart appears 2m in front of XR camera
+let vrReferencePosition = new THREE.Vector3(0, 1.4, -2); // Kart appears 2m in front of XR camera
 let vrReferenceRotation = new THREE.Euler(0, 0, 0); // Reference rotation for kart in VR
 let kartOriginalTransform = { position: new THREE.Vector3(), rotation: new THREE.Euler() }; // Store original kart transform
 
