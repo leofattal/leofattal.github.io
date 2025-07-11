@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Pirate Ship Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #info {
+      position: absolute;
+      z-index: 999;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+<div id="info">
+  <h2>Pirate Ship Game</h2>
+  <p>Controls:</p>
+  <ul>
+    <li><strong>W / S</strong>: Move Forward / Back</li>
+    <li><strong>A / D</strong>: Move Left / Right</li>
+    <li><strong>Space</strong>: Shoot Cannonball</li>
+  </ul>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- Three.js (CDN) -->
+<script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
+<!-- Cannon.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+
+<script>
+  // ========== BASIC SETUP ==========
+  const canvas = document.getElementById('gameCanvas');
+  const renderer = new THREE.WebGLRenderer({ canvas });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Scene & Camera
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb); // sky color
+  const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  camera.position.set(0, 5, 15);
+
+  // Resize handling
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  });
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight.position.set(10, 30, 20);
+  scene.add(dirLight);
+
+  // ========== PHYSICS SETUP (Cannon.js) ==========
+  const world = new CANNON.World();
+  world.gravity.set(0, -9.82, 0); // standard gravity
+
+  // For stable simulation
+  world.broadphase = new CANNON.SAPBroadphase(world);
+  world.solver.iterations = 10;
+
+  // ========== CREATE WATER (SEA) ==========
+  // Visual (Three.js)
+  const waterGeometry = new THREE.PlaneGeometry(200, 200);
+  const waterMaterial = new THREE.MeshPhongMaterial({ color: 0x0077be, side: THREE.DoubleSide });
+  const waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
+  waterMesh.rotation.x = -Math.PI / 2;
+  scene.add(waterMesh);
+
+  // Physics (Cannon.js) - static body
+  const waterBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(100, 0.1, 100))
+  });
+  waterBody.position.set(0, 0, 0);
+  world.addBody(waterBody);
+
+  // ========== CREATE PIRATE SHIP ==========
+  // Visual
+  const pirateGeometry = new THREE.BoxGeometry(2, 1, 5);
+  const pirateMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 });
+  const pirateShip = new THREE.Mesh(pirateGeometry, pirateMaterial);
+  pirateShip.position.set(0, 1, 0);
+  scene.add(pirateShip);
+
+  // Physics
+  const pirateShape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 2.5));
+  const pirateBody = new CANNON.Body({
+    mass: 5,
+    shape: pirateShape
+  });
+  pirateBody.position.set(0, 1, 0);
+  world.addBody(pirateBody);
+
+  // ========== CREATE MARINE SHIPS ==========
+  const marineShips = [];
+  const marineBodies = [];
+
+  function createMarineShip(x, z) {
+    // Visual
+    const marineGeom = new THREE.BoxGeometry(2, 1, 4);
+    const marineMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+    const marineMesh = new THREE.Mesh(marineGeom, marineMat);
+    marineMesh.position.set(x, 1, z);
+    scene.add(marineMesh);
+
+    // Physics
+    const marineShape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 2));
+    const marineBody = new CANNON.Body({
+      mass: 5,
+      shape: marineShape
+    });
+    marineBody.position.set(x, 1, z);
+    world.addBody(marineBody);
+
+    marineShips.push(marineMesh);
+    marineBodies.push(marineBody);
+  }
+
+  // Example: create a few marine ships
+  createMarineShip(-10, -20);
+  createMarineShip(10, -20);
+  createMarineShip(0, -30);
+
+  // ========== SHOOTING CANNONBALLS ==========
+  const cannonBalls = [];
+  const cannonBodies = [];
+
+  function shootCannonBall() {
+    if (!pirateBody) return;
+
+    // Create a small sphere mesh
+    const sphereGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+    const ballMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+    // Position it at the pirate ship's location
+    ballMesh.position.copy(pirateShip.position);
+    scene.add(ballMesh);
+
+    // Create Cannon body
+    const ballShape = new CANNON.Sphere(0.2);
+    const ballBody = new CANNON.Body({ mass: 1, shape: ballShape });
+    ballBody.position.copy(pirateBody.position);
+
+    // Calculate a forward vector
+    // (We keep it simple and just shoot "forward" along negative Z)
+    const forwardImpulse = new CANNON.Vec3(0, 0, -1);
+    // Optionally adjust power
+    const impulsePower = 10;
+    ballBody.applyImpulse(forwardImpulse.scale(impulsePower), ballBody.position);
+
+    // Add to world
+    world.addBody(ballBody);
+
+    // Track them so we can update in animation loop
+    cannonBalls.push(ballMesh);
+    cannonBodies.push(ballBody);
+  }
+
+  // ========== KEYBOARD CONTROLS ==========
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+    // Shoot on space
+    if (e.code === 'Space') {
+      shootCannonBall();
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  function updateControls() {
+    // Basic forward/backward
+    if (keys['w']) {
+      pirateBody.velocity.z -= 0.05;
+    }
+    if (keys['s']) {
+      pirateBody.velocity.z += 0.05;
+    }
+    // Left/right
+    if (keys['a']) {
+      pirateBody.velocity.x -= 0.05;
+    }
+    if (keys['d']) {
+      pirateBody.velocity.x += 0.05;
+    }
+  }
+
+  // ========== ANIMATION LOOP ==========
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Step the physics world
+    world.step(1/60);
+
+    // Update controls
+    updateControls();
+
+    // Sync pirate ship mesh with body
+    pirateShip.position.copy(pirateBody.position);
+    pirateShip.quaternion.copy(pirateBody.quaternion);
+
+    // Sync each marine ship
+    for (let i = 0; i < marineShips.length; i++) {
+      marineShips[i].position.copy(marineBodies[i].position);
+      marineShips[i].quaternion.copy(marineBodies[i].quaternion);
+    }
+
+    // Update cannonballs
+    for (let i = 0; i < cannonBalls.length; i++) {
+      cannonBalls[i].position.copy(cannonBodies[i].position);
+      cannonBalls[i].quaternion.copy(cannonBodies[i].quaternion);
+    }
+
+    // Render the scene
+    renderer.render(scene, camera);
+  }
+
+  animate();
+</script>
+</body>
+</html>
