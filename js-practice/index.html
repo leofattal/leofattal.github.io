@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>button test</title>
+</head>
+<body>
+    <style>
+        button {
+            background-color: blue;
+            color: white;
+            font-size: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: lightblue;
+        }
+        #images {
+            display: none;
+        }
+    </style>
+
+    <h1>button test</h1>
+    <p>This is a practice page for JavaScript.</p>
+    
+    <button id="myButton" onclick="">Click Me!</button>
+    <p id="message">Click the button to see something cool.</p>
+  
+
+  
+
+    <button onclick="toggleimage()">toggle image</button>
+    <img id= "images" src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google logo">
+
+<Script>
+    function displayMessage() {
+        var message = document.getElementById("message")
+        message.innerHTML = "You clicked the button!";
+    }
+   
+    
+function toggleimage() {
+    var img = document.getElementById("images");
+    if (img.style.display === "none") {
+        img.style.display = "block";
+    } else {
+        img.style.display = "none";
+    }
+}
+
+
+
+</Script>
+
+</body>
+
+</html>

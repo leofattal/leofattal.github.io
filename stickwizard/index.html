@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Magic Stickman Battle</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #111;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+
+    #enemyWord {
+      font-size: 30px;
+      margin-top: 20px;
+      color: red; /* <- Yes, this makes the spell red */
+    }
+
+    #input {
+      font-size: 20px;
+      padding: 8px;
+      width: 200px;
+      margin-top: 10px;
+    }
+
+    .health-bar {
+      width: 80%;
+      height: 20px;
+      background: #444;
+      margin: 15px auto;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .health-fill {
+      height: 100%;
+      background: #4caf50;
+      width: 100%;
+    }
+
+    canvas {
+      background: #222;
+      margin-top: 30px;
+      border: 2px solid white;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧙 Magic Stickman Battle 🛡️</h1>
+
+  <div class="health-bar"><div id="playerHealth" class="health-fill"></div></div>
+  <div class="health-bar"><div id="enemyHealth" class="health-fill"></div></div>
+
+  <div id="enemyWord">loading...</div>
+  <input id="input" placeholder="Type spell here..." autofocus />
+
+  <canvas id="battlefield" width="400" height="200"></canvas>
+
+  <script src="game.js"></script>
+</body>
+</html>
