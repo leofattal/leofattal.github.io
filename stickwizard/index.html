@@ -1,65 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Magic Stickman Battle</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      background: #111;
-      color: white;
-      margin: 0;
-      padding: 20px;
-    }
-
-    #enemyWord {
-      font-size: 30px;
-      margin-top: 20px;
-      color: red; /* <- Yes, this makes the spell red */
-    }
-
-    #input {
-      font-size: 20px;
-      padding: 8px;
-      width: 200px;
-      margin-top: 10px;
-    }
-
-    .health-bar {
-      width: 80%;
-      height: 20px;
-      background: #444;
-      margin: 15px auto;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    .health-fill {
-      height: 100%;
-      background: #4caf50;
-      width: 100%;
-    }
-
-    canvas {
-      background: #222;
-      margin-top: 30px;
-      border: 2px solid white;
-    }
+    body { font-family: sans-serif; text-align: center; background: #111; color: white; padding: 20px; }
+    #enemyWord { font-size: 30px; color: red; margin-top: 20px; }
+    #input { font-size: 20px; padding: 8px; width: 200px; margin: 10px; }
+    .health-bar { width: 80%; height: 20px; background: #444; margin: 15px auto; border-radius: 10px; overflow: hidden; }
+    .health-fill { height: 100%; background: #4caf50; width: 100%; }
+    #stats, #controls { margin: 15px 0; }
+    #stats button, #controls button { font-size: 16px; padding: 6px 12px; margin: 0 5px; }
+    #stats span { font-size: 18px; margin: 0 15px; }
+    canvas { background: #222; margin-top: 30px; border: 2px solid white; }
   </style>
 </head>
 <body>
-
   <h1>🧙 Magic Stickman Battle 🛡️</h1>
-
   <div class="health-bar"><div id="playerHealth" class="health-fill"></div></div>
   <div class="health-bar"><div id="enemyHealth" class="health-fill"></div></div>
-
   <div id="enemyWord">loading...</div>
-  <input id="input" placeholder="Type spell here..." autofocus />
-
+  <input id="input" placeholder="Type word here..." autofocus />
+  <div id="controls">
+    <button id="startSpend">Start Spend</button>
+    <button id="startAttack">Start Attack</button>
+  </div>
+  <div id="stats">
+    <button id="attackBtn">Attack +1</button><span id="attackCount">5</span>
+    <button id="defenseBtn">Defense +1</button><span id="defenseCount">5</span>
+  </div>
   <canvas id="battlefield" width="400" height="200"></canvas>
-
   <script src="game.js"></script>
 </body>
 </html>
