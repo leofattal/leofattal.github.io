@@ -1,3 +1,8 @@
+// Modern Three.js ES6 Module Imports (like Spaces project)
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+
 import { supabase } from './supabase.js';
 const leaderboardDiv = document.getElementById('leaderboard');
 
@@ -38,18 +43,13 @@ let controllerGrips = [];
 // World container for VR mode
 let worldContainer;
 
-// VR-specific variables for the new approach
-let vrReferencePosition = new THREE.Vector3(0, 1.4, -2); // Kart appears 2m in front of XR camera
+// VR-specific variables for XR space following kart
+let vrReferencePosition = new THREE.Vector3(0, 0.5, 1); // Offset behind kart
 let vrReferenceRotation = new THREE.Euler(0, 0, 0); // Reference rotation for kart in VR
-let kartOriginalTransform = { position: new THREE.Vector3(), rotation: new THREE.Euler() }; // Store original kart transform
 
-// VR transform storage for restore after rendering
-let vrTransformStorage = {
-    kartMatrix: new THREE.Matrix4(),
-    worldMatrix: new THREE.Matrix4(),
-    kartMatrixAutoUpdate: true,
-    worldMatrixAutoUpdate: true
-};
+// WebXR Reference Space Management following movingSpaces.md
+let baseReferenceSpace = null; // Store the original reference space
+let currentReferenceSpace = null; // Current offset reference space following kart
 
 const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
 
@@ -354,62 +354,89 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-track-button').addEventListener('click', toggleTrack);
 });
 
-// VR World Transformation Function - PROPER POSE TRANSFORM
-function applyVRWorldTransform() {
+// Transform World to Position Kart in VR - SIMPLE APPROACH
+function transformWorldForVR() {
     if (!isVRMode || !kart || !worldContainer) return;
 
-    // Store original matrices and auto-update states
-    vrTransformStorage.kartMatrix.copy(kart.matrix);
-    vrTransformStorage.worldMatrix.copy(worldContainer.matrix);
-    vrTransformStorage.kartMatrixAutoUpdate = kart.matrixAutoUpdate;
-    vrTransformStorage.worldMatrixAutoUpdate = worldContainer.matrixAutoUpdate;
+    // Calculate where the kart currently is
+    const kartPosition = kart.position.clone();
+    const kartRotation = kart.rotation.clone();
 
-    // Calculate current kart transform matrix from position and rotation
-    const kartCurrentMatrix = new THREE.Matrix4();
-    kartCurrentMatrix.makeRotationFromEuler(kart.rotation);
-    kartCurrentMatrix.setPosition(kart.position);
+    // Apply the vrReferencePosition offset in kart's local coordinate system
+    const targetWorldPosition = kartPosition.clone();
+    const offsetVector = vrReferencePosition.clone();
+    offsetVector.applyQuaternion(kart.quaternion); // Transform offset to world space
+    targetWorldPosition.add(offsetVector);
 
-    // Calculate desired reference transform matrix
-    const referenceMatrix = new THREE.Matrix4();
-    referenceMatrix.makeRotationFromEuler(vrReferenceRotation);
-    referenceMatrix.setPosition(vrReferencePosition);
+    // Calculate how to transform the world so kart appears at origin for VR camera
+    const worldOffset = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0, 0), targetWorldPosition);
+    const rotationOffset = vrReferenceRotation.y - kartRotation.y;
 
-    // Calculate the transform that takes current kart pose to reference pose
-    // vrTransform * kartCurrentMatrix = referenceMatrix
-    // So: vrTransform = referenceMatrix * kartCurrentMatrix.inverse()
-    const kartCurrentMatrixInverse = new THREE.Matrix4().copy(kartCurrentMatrix).invert();
-    const vrTransform = new THREE.Matrix4().multiplyMatrices(referenceMatrix, kartCurrentMatrixInverse);
+    // Apply transforms to world container
+    worldContainer.position.copy(worldOffset);
+    worldContainer.rotation.y = rotationOffset;
 
-    // Apply the same transform to both world and kart
-    const newWorldMatrix = new THREE.Matrix4().multiplyMatrices(vrTransform, vrTransformStorage.worldMatrix);
-    worldContainer.matrix.copy(newWorldMatrix);
-    worldContainer.matrixAutoUpdate = false;
-
-    const newKartMatrix = new THREE.Matrix4().multiplyMatrices(vrTransform, vrTransformStorage.kartMatrix);
-    kart.matrix.copy(newKartMatrix);
-    kart.matrixAutoUpdate = false;
-
-    console.log(`VR Pose Transform - Kart: (${kart.position.x.toFixed(2)}, ${kart.position.z.toFixed(2)}, ${(kart.rotation.y * 180 / Math.PI).toFixed(1)}°) -> Ref: (${vrReferencePosition.x.toFixed(2)}, ${vrReferencePosition.z.toFixed(2)}, ${(vrReferenceRotation.y * 180 / Math.PI).toFixed(1)}°)`);
+    console.log(`VR World Transform - Kart at: (${kartPosition.x.toFixed(2)}, ${kartPosition.z.toFixed(2)}), World offset: (${worldOffset.x.toFixed(2)}, ${worldOffset.z.toFixed(2)})`);
 }
 
-// VR World Transformation Restore Function - FIXED MATRIX APPROACH
-function restoreVRWorldTransform() {
-    if (!isVRMode || !kart || !worldContainer) return;
+// Calculate Look-At Quaternions following movingSpaces.md
+function calculateLookAtQuaternion(eyeX, eyeY, eyeZ, targetX, targetY, targetZ) {
+    // Use Three.js Camera for proper lookAt calculation (cameras default to looking down -Z)
+    const tempCamera = new THREE.PerspectiveCamera();
+    const eyePos = new THREE.Vector3(eyeX, eyeY, eyeZ);
+    const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
 
-    // Restore exact original matrices and auto-update states
-    worldContainer.matrix.copy(vrTransformStorage.worldMatrix);
-    worldContainer.matrixAutoUpdate = vrTransformStorage.worldMatrixAutoUpdate;
+    // Position the camera at the eye position
+    tempCamera.position.copy(eyePos);
 
-    kart.matrix.copy(vrTransformStorage.kartMatrix);
-    kart.matrixAutoUpdate = vrTransformStorage.kartMatrixAutoUpdate;
+    // Make it look at the target
+    tempCamera.lookAt(targetPos);
 
-    // Force matrix update to sync with logical position/rotation if auto-update was true
-    if (worldContainer.matrixAutoUpdate) {
-        worldContainer.updateMatrix();
-    }
-    if (kart.matrixAutoUpdate) {
-        kart.updateMatrix();
-    }
+    // Extract the quaternion
+    const quaternion = tempCamera.quaternion;
+
+    return { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w };
+}
+
+// Update XR Reference Space to Follow Kart - FOLLOWING movingSpaces.md
+function updateXRSpaceToFollowKart() {
+    if (!isVRMode || !kart || !baseReferenceSpace) return;
+
+    // Step 1: Define the Transform (Think Like a Regular Object)
+    // Calculate where we want the camera to be relative to the kart
+    const kartPosition = kart.position.clone();
+
+    // Apply the vrReferencePosition offset in kart's local coordinate system
+    const cameraTargetPosition = kartPosition.clone();
+    const offsetVector = vrReferencePosition.clone(); // (0, 0.5, 1)
+    offsetVector.applyQuaternion(kart.quaternion); // Transform to world space
+    cameraTargetPosition.add(offsetVector);
+
+    // Use the kart's quaternion directly since we want camera to follow kart orientation
+    const kartQuaternion = kart.quaternion;
+
+    // Create transform as if positioning an object at the camera target position
+    const transform = new XRRigidTransform(
+        {
+            x: cameraTargetPosition.x,
+            y: cameraTargetPosition.y,
+            z: cameraTargetPosition.z
+        },
+        {
+            x: kartQuaternion.x,
+            y: kartQuaternion.y,
+            z: kartQuaternion.z,
+            w: kartQuaternion.w
+        }
+    );
+
+    // Step 2: Apply the INVERSE to create the reference space
+    currentReferenceSpace = baseReferenceSpace.getOffsetReferenceSpace(transform.inverse);
+
+    // Step 3: Set the New Reference Space using correct Three.js API
+    renderer.xr.setReferenceSpace(currentReferenceSpace);
+
+    console.log(`XR Space Following Kart (movingSpaces.md approach) - Kart at: (${kartPosition.x.toFixed(2)}, ${kartPosition.z.toFixed(2)}), Camera target: (${cameraTargetPosition.x.toFixed(2)}, ${cameraTargetPosition.z.toFixed(2)})`);
 }
 
 // Mobile joystick setup
@@ -524,10 +551,13 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
     const skyboxLoader = new THREE.CubeTextureLoader();
-    scene.background = skyboxLoader.load([
+    const skyboxTexture = skyboxLoader.load([
         'assets/skybox/right.jpg', 'assets/skybox/left.jpg', 'assets/skybox/top.jpg',
         'assets/skybox/bottom.jpg', 'assets/skybox/front.jpg', 'assets/skybox/back.jpg'
     ]);
+    // Fix color space issue - set to SRGBColorSpace for proper colors
+    skyboxTexture.colorSpace = THREE.SRGBColorSpace;
+    scene.background = skyboxTexture;
 
     // Create a world container for VR mode
     worldContainer = new THREE.Group();
@@ -538,6 +568,9 @@ function init() {
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Fix color space issue - set output color space to sRGB for proper colors
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Enable XR features
     renderer.xr.enabled = true;
@@ -557,9 +590,11 @@ function init() {
         vrToggle.classList.add('hidden');
     }
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Fix lighting intensities for modern Three.js (r155+) - multiply by PI
+    // See: https://discourse.threejs.org/t/updates-to-lighting-in-three-js-r155/53733
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6 * Math.PI); // 0.6 * PI ≈ 1.885
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8 * Math.PI); // 0.8 * PI ≈ 2.513
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
     updateCameraFOV();
@@ -573,6 +608,64 @@ function init() {
     document.addEventListener('keyup', e => keyboard[e.key] = false);
     animate();
 }
+
+// Fix Color Space on GLTF Models - prevents washed out textures in modern Three.js
+function fixGLTFColorSpace(gltf) {
+    gltf.scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            const material = child.material;
+
+            // Fix color space on all material textures
+            if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
+            if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+            if (material.specularMap) material.specularMap.colorSpace = THREE.SRGBColorSpace;
+
+            // Handle arrays of materials (multi-material objects)
+            if (Array.isArray(material)) {
+                material.forEach(mat => {
+                    if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+                    if (mat.emissiveMap) mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+                    if (mat.specularMap) mat.specularMap.colorSpace = THREE.SRGBColorSpace;
+                });
+            }
+        }
+    });
+}
+
+// Alternative: Selective Color Space Fix - only applies sRGB if texture looks like it needs it
+function fixGLTFColorSpaceSelective(gltf) {
+    gltf.scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            const material = child.material;
+
+            // Only apply sRGB to textures that appear to need it
+            const applyColorSpaceFix = (texture) => {
+                if (!texture) return;
+
+                // Skip if already has a color space set
+                if (texture.colorSpace && texture.colorSpace !== THREE.NoColorSpace) {
+                    return;
+                }
+
+                // Apply sRGB to diffuse/albedo textures only
+                texture.colorSpace = THREE.SRGBColorSpace;
+            };
+
+            // Only fix base color/diffuse maps, not normal maps or other technical textures
+            if (material.map) applyColorSpaceFix(material.map);
+            if (material.emissiveMap) applyColorSpaceFix(material.emissiveMap);
+
+            // Handle material arrays
+            if (Array.isArray(material)) {
+                material.forEach(mat => {
+                    if (mat.map) applyColorSpaceFix(mat.map);
+                    if (mat.emissiveMap) applyColorSpaceFix(mat.emissiveMap);
+                });
+            }
+        }
+    });
+}
+
 
 function loadTrack(callback) {
     leaderboardDiv.style.display = 'block';
@@ -589,9 +682,12 @@ function loadTrack(callback) {
             return response.json();
         })
         .then(config => {
-            const loader = new THREE.GLTFLoader();
+            const loader = new GLTFLoader();
 
             loader.load(config.path, gltf => {
+                // Skip color space fix for track - textures might already be sRGB
+                // fixGLTFColorSpace(gltf);
+
                 track = gltf.scene;
 
                 if (config.scale) {
@@ -620,14 +716,13 @@ function loadModels() {
     if (coin) worldContainer.remove(coin);
     if (donut) worldContainer.remove(donut);
 
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoader();
     loader.load('assets/kart/scene.gltf', gltf => {
+        // Fix color space for proper colors in modern Three.js
+        fixGLTFColorSpace(gltf);
+
         kart = gltf.scene;
         kart.scale.set(0.5 * scaleFactor, 0.5 * scaleFactor, 0.5 * scaleFactor);
-
-        // Store original transform for VR mode
-        kartOriginalTransform.position.set(0, 0, 0);
-        kartOriginalTransform.rotation.set(0, 0, 0);
 
         // In VR mode: kart starts at origin and stays there logically
         // In non-VR mode: attach camera to kart
@@ -670,6 +765,9 @@ function loadModels() {
     });
 
     loader.load('assets/donut.gltf', gltf => {
+        // Fix color space for proper colors in modern Three.js
+        fixGLTFColorSpace(gltf);
+
         donut = gltf.scene;
         donut.scale.set(200 * scaleFactor, 200 * scaleFactor, 200 * scaleFactor);
         donut.rotateZ(Math.PI / 2);
@@ -679,6 +777,9 @@ function loadModels() {
     });
 
     loader.load('assets/coin.gltf', gltf => {
+        // Fix color space for proper colors in modern Three.js
+        fixGLTFColorSpace(gltf);
+
         coin = gltf.scene;
         coin.scale.set(10 * scaleFactor, 10 * scaleFactor, 10 * scaleFactor);
         coin.position.set(0, 30 * scaleFactor, -200 * scaleFactor);
@@ -833,14 +934,6 @@ function render() {
             }
         }
 
-        // IMPORTANT: Ensure raycasting happens with logical/physical state
-        // Temporarily restore logical state if VR transforms were applied in previous frame
-        if (isVRMode) {
-            // Force update matrices to reflect logical position/rotation before raycasting
-            kart.updateMatrixWorld(true);
-            worldContainer.updateMatrixWorld(true);
-        }
-
         // Raycasting for ground detection and obstacles
         raycaster.set(kart.position.clone().add(new THREE.Vector3(0, 10 * scaleFactor, 0)), downDirection);
         const intersects = raycaster.intersectObject(track, true);
@@ -947,18 +1040,13 @@ function render() {
 
     // ============= ALL PHYSICS COMPLETE - NOW RENDER PHASE =============
 
-    // Apply VR transform ONLY for rendering (if in VR mode)
+    // Update XR Reference Space following movingSpaces.md approach
     if (isVRMode) {
-        applyVRWorldTransform();
+        updateXRSpaceToFollowKart();
     }
 
-    // Render the scene
+    // Render the scene (no need for transform restore)
     renderer.render(scene, camera);
-
-    // Immediately restore transforms after rendering (before next physics frame)
-    if (isVRMode) {
-        restoreVRWorldTransform();
-    }
 }
 
 function showGameOver() {
@@ -1023,7 +1111,11 @@ function setupVRButton() {
         isVRMode = false;
         vrToggle.textContent = 'Enter VR';
 
-        // Reset world container transform
+        // Reset reference spaces following movingSpaces.md
+        baseReferenceSpace = null;
+        currentReferenceSpace = null;
+
+        // Reset world container transform (cleanup from old approach)
         worldContainer.position.set(0, 0, 0);
         worldContainer.rotation.set(0, 0, 0);
 
@@ -1055,19 +1147,26 @@ function setupVRButton() {
         controllerGrips = [];
     });
 
-    // Function to handle when a VR session is started - UPDATED FOR NEW APPROACH
+    // Function to handle when a VR session is started - FOLLOWING movingSpaces.md
     function onSessionStarted(session) {
         renderer.xr.setSession(session);
         isVRMode = true;
         vrToggle.textContent = 'Exit VR';
 
-        // NEW APPROACH: Let XR camera stay in natural position, position world/kart to appear in front
+        // Initialize WebXR reference spaces following movingSpaces.md
+        session.requestReferenceSpace('local').then((referenceSpace) => {
+            baseReferenceSpace = referenceSpace;
+            currentReferenceSpace = referenceSpace;
+            console.log("VR reference space initialized following movingSpaces.md");
+        }).catch((error) => {
+            console.error("Failed to get reference space:", error);
+        });
+
         if (kart) {
-            // Remove camera from kart and add directly to scene (camera stays at natural XR position)
+            // Remove camera from kart and add directly to scene
             kart.remove(camera);
             scene.add(camera);
-
-            console.log("VR mode: Kart will appear 2m in front of XR camera");
+            console.log("VR mode: XR reference space will follow kart (movingSpaces.md approach)");
         }
 
         // Hide UI elements in VR mode
@@ -1222,12 +1321,8 @@ function setupVRControllers() {
     console.log("Setting up VR controllers...");
 
     let controllerModelFactory;
-    if (window.XRControllerModelFactory) {
-        controllerModelFactory = new window.XRControllerModelFactory();
-        console.log("Using XRControllerModelFactory for controller models");
-    } else {
-        console.warn("XRControllerModelFactory not found, using simplified controller visualization");
-    }
+    controllerModelFactory = new XRControllerModelFactory();
+    console.log("Using XRControllerModelFactory for controller models");
 
     // Setup controllers
     for (let i = 0; i < 2; i++) {
@@ -1248,23 +1343,11 @@ function setupVRControllers() {
 
         controller.userData.index = i;
 
-        if (!controllerModelFactory) {
-            const geometry = new THREE.BoxGeometry(0.03, 0.1, 0.03);
-            const material = new THREE.MeshBasicMaterial({
-                color: i === 0 ? 0x3333ff : 0xff3333
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(0, -0.05, 0);
-            controller.add(mesh);
-        }
-
         scene.add(controller);
         vrControllers.push(controller);
 
         const controllerGrip = renderer.xr.getControllerGrip(i);
-        if (controllerModelFactory) {
-            controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-        }
+        controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
         scene.add(controllerGrip);
         controllerGrips.push(controllerGrip);
     }
