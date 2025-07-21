@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 let scene, camera, renderer;
 let tank, turret;
 let bullets = [];
@@ -5,7 +7,6 @@ let bullets = [];
 let keys = {};
 
 init();
-animate();
 
 function init() {
   // Scene
@@ -23,7 +24,7 @@ function init() {
   camera.lookAt(0, 0, 0);
 
   // Renderer
-  renderer = new THREE.WebGLRenderer();
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
@@ -57,10 +58,13 @@ function init() {
   window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
   window.addEventListener('mousemove', rotateTurret);
   window.addEventListener('keydown', shootBullet);
+  window.addEventListener('resize', onWindowResize);
+
+  // Start render loop
+  renderer.setAnimationLoop(animate);
 }
 
 function animate() {
-  requestAnimationFrame(animate);
   handleMovement();
   updateBullets();
   camera.lookAt(tank.position); // Keep camera looking at tank
@@ -106,4 +110,10 @@ function updateBullets() {
   bullets.forEach(bullet => {
     bullet.position.add(bullet.userData.velocity);
   });
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
