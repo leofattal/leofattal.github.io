@@ -18,30 +18,17 @@
     <meta property="og:type" content="website">
     <link rel="icon" type="image/png" href="assets/LeoKart-favicon.png" sizes="360x360">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script>
-        // Manually define XRControllerModelFactory to make it globally accessible
-        window.XRControllerModelFactory = class XRControllerModelFactory {
-            constructor() {
-                this.gltfLoader = new THREE.GLTFLoader();
-                this.path = 'https://unpkg.com/three@0.126.0/examples/models/gltf/';
-            }
 
-            createControllerModel(controller) {
-                const controllerModel = new THREE.Group();
-
-                // Create simple visual as a fallback
-                const geometry = new THREE.CylinderGeometry(0.01, 0.02, 0.08, 16);
-                const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.rotation.x = -Math.PI / 2;
-                controllerModel.add(mesh);
-
-                return controllerModel;
-            }
-        };
+    <!-- Modern Three.js ES6 Module Setup (like Spaces project) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.173.0/examples/jsm/"
+        }
+    }
     </script>
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
 </head>
