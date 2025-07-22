@@ -44,7 +44,7 @@ let controllerGrips = [];
 let worldContainer;
 
 // VR-specific variables for XR space following kart
-let vrReferencePosition = new THREE.Vector3(0, 0.5, 1); // Offset behind kart
+let vrReferencePosition = new THREE.Vector3(0, 0.5, 2); // Offset behind kart
 let vrReferenceRotation = new THREE.Euler(0, 0, 0); // Reference rotation for kart in VR
 
 // WebXR Reference Space Management following movingSpaces.md
