@@ -398,22 +398,19 @@ function calculateLookAtQuaternion(eyeX, eyeY, eyeZ, targetX, targetY, targetZ) 
     return { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w };
 }
 
-// Update XR Reference Space to Follow Kart - FOLLOWING movingSpaces.md
+// Update XR Reference Space to Follow Kart - FOLLOWING movingSpaces.md with DIRECT sync
 function updateXRSpaceToFollowKart() {
     if (!isVRMode || !kart || !baseReferenceSpace) return;
 
-    // Step 1: Define the Transform (Think Like a Regular Object)
-    // Calculate where we want the camera to be relative to the kart
+    // Use kart position and rotation directly - no smoothing needed with perfect sync
     const kartPosition = kart.position.clone();
+    const kartQuaternion = kart.quaternion.clone();
 
     // Apply the vrReferencePosition offset in kart's local coordinate system
     const cameraTargetPosition = kartPosition.clone();
-    const offsetVector = vrReferencePosition.clone(); // (0, 0.5, 1)
-    offsetVector.applyQuaternion(kart.quaternion); // Transform to world space
+    const offsetVector = vrReferencePosition.clone(); // (0, 0.5, 2)
+    offsetVector.applyQuaternion(kartQuaternion); // Transform to world space
     cameraTargetPosition.add(offsetVector);
-
-    // Use the kart's quaternion directly since we want camera to follow kart orientation
-    const kartQuaternion = kart.quaternion;
 
     // Create transform as if positioning an object at the camera target position
     const transform = new XRRigidTransform(
@@ -430,13 +427,11 @@ function updateXRSpaceToFollowKart() {
         }
     );
 
-    // Step 2: Apply the INVERSE to create the reference space
+    // Apply the INVERSE to create the reference space
     currentReferenceSpace = baseReferenceSpace.getOffsetReferenceSpace(transform.inverse);
 
-    // Step 3: Set the New Reference Space using correct Three.js API
+    // Set the New Reference Space using correct Three.js API
     renderer.xr.setReferenceSpace(currentReferenceSpace);
-
-    console.log(`XR Space Following Kart (movingSpaces.md approach) - Kart at: (${kartPosition.x.toFixed(2)}, ${kartPosition.z.toFixed(2)}), Camera target: (${cameraTargetPosition.x.toFixed(2)}, ${cameraTargetPosition.z.toFixed(2)})`);
 }
 
 // Mobile joystick setup
@@ -897,6 +892,8 @@ function render() {
     // VR controller input handling
     if (isVRMode) {
         checkXButtonState();
+        // Update XR Reference Space CONTINUOUSLY for perfect sync (like Spaces project)
+        updateXRSpaceToFollowKart();
     }
 
     // ============= PHYSICS AND GAME LOGIC PHASE =============
@@ -1040,12 +1037,7 @@ function render() {
 
     // ============= ALL PHYSICS COMPLETE - NOW RENDER PHASE =============
 
-    // Update XR Reference Space following movingSpaces.md approach
-    if (isVRMode) {
-        updateXRSpaceToFollowKart();
-    }
-
-    // Render the scene (no need for transform restore)
+    // Render the scene
     renderer.render(scene, camera);
 }
 
