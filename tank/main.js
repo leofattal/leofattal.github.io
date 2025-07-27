@@ -28,15 +28,21 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // Ground
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
-    new THREE.MeshBasicMaterial({ color: 0x444444 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
+  // Add shadows for realism
+  renderer.shadowMap.enabled = true;
 
-  // Tank base
+  // Tank wheels
+  const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 16);
+  const wheelMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
+  const wheelPositions = [
+    [-0.8, 0.2, -1.1],
+    [0.8, 0.2, -1.1],
+    [-0.8, 0.2, -0.3],
+    [0.8, 0.2, -0.3],
+    [-0.8, 0.2, 0.5],
+    [0.8, 0.2, 0.5],
+  ];
+  // Create tank base before adding wheels
   tank = new THREE.Mesh(
     new THREE.BoxGeometry(2, 1, 3),
     new THREE.MeshBasicMaterial({ color: 0x00ff00 })
@@ -44,14 +50,40 @@ function init() {
   tank.position.y = 0.5;
   scene.add(tank);
 
+  for (const [x, y, z] of wheelPositions) {
+    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(x, y, z);
+    tank.add(wheel);
+  }
+
+  // Tank hull (sticks out the body)
+  const hull = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.7, 2.2),
+    new THREE.MeshBasicMaterial({ color: 0x007700 })
+  );
+  hull.position.y = 0.7;
+  hull.position.z = 0.6;
+  tank.add(hull);
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Camera follow variables
+  window.cameraOffset = new THREE.Vector3(0, 10, 15);
   // Turret
   turret = new THREE.Mesh(
     new THREE.BoxGeometry(1, 0.5, 1.5),
     new THREE.MeshBasicMaterial({ color: 0x008800 })
   );
-  turret.position.y = 0.6;
-  turret.position.z = -0.2;
-  tank.add(turret);
+  turret.position.y = 0.6; // Place on top of hull
+  turret.position.z = 0.85; // Offset turret to stick out from the front of the hull
+  hull.add(turret); // Attach turret to hull
+
+  // Ground
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(100, 100),
+    new THREE.MeshBasicMaterial({ color: 0x444444 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
 
   // Event listeners
   window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
@@ -67,22 +99,23 @@ function init() {
 function animate() {
   handleMovement();
   updateBullets();
-  camera.lookAt(tank.position); // Keep camera looking at tank
+  // Prevent camera from going below ground or inside tank
+  const minCameraHeight = 2;
+  if (camera.position.y < minCameraHeight) {
+    camera.position.y = minCameraHeight;
+  }
+  // Camera follows the tank
+  if (typeof cameraOffset !== 'undefined') {
+    const offset = cameraOffset.clone().applyAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      tank.rotation.y
+    );
+    camera.position.copy(tank.position).add(offset);
+    camera.lookAt(tank.position);
+  }
+
   renderer.render(scene, camera);
 }
-
-function handleMovement() {
-  if (keys['w']) tank.translateZ(-0.1);
-  if (keys['s']) tank.translateZ(0.1);
-  if (keys['a']) tank.rotation.y += 0.03;
-  if (keys['d']) tank.rotation.y -= 0.03;
-}
-
-function rotateTurret(event) {
-  const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-  turret.rotation.y = mouseX * Math.PI / 2;
-}
-
 function shootBullet(event) {
   if (event.code !== 'Space') return;
 
