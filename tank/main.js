@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let scene, camera, renderer;
 let tank, turret, barrel;
@@ -7,6 +8,7 @@ let obstacles = [];
 let backviewCamera;
 let currentCamera = 'main';
 let lights = {};
+let tankModel, tankGroup;
 
 let keys = {};
 
@@ -15,7 +17,7 @@ init();
 function init() {
   // Scene
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x87CEEB, 50, 200); // Sky blue fog for atmosphere
+  scene.fog = new THREE.Fog(0x87CEEB, 100, 300); // Sky blue fog for atmosphere
 
   // Main Camera
   camera = new THREE.PerspectiveCamera(
@@ -24,7 +26,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(0, 15, 20);
+  camera.position.set(0, 20, 30);
   camera.lookAt(0, 0, 0);
 
   // Backview Camera
@@ -45,17 +47,17 @@ function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.5;
   document.body.appendChild(renderer.domElement);
 
   createLighting();
-  createTank();
   createBattlefield();
   createObstacles();
   createAtmosphere();
+  loadTankModel();
 
   // Camera follow variables
-  window.cameraOffset = new THREE.Vector3(0, 15, 20);
+  window.cameraOffset = new THREE.Vector3(0, 20, 30);
 
   // Event listeners
   window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
@@ -69,40 +71,84 @@ function init() {
   renderer.setAnimationLoop(animate);
 }
 
-function createLighting() {
-  // Ambient light for overall illumination
-  const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
-  scene.add(ambientLight);
-
-  // Directional light (sun)
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  directionalLight.position.set(50, 100, 50);
-  directionalLight.castShadow = true;
-  directionalLight.shadow.mapSize.width = 2048;
-  directionalLight.shadow.mapSize.height = 2048;
-  directionalLight.shadow.camera.near = 0.5;
-  directionalLight.shadow.camera.far = 500;
-  directionalLight.shadow.camera.left = -100;
-  directionalLight.shadow.camera.right = 100;
-  directionalLight.shadow.camera.top = 100;
-  directionalLight.shadow.camera.bottom = -100;
-  scene.add(directionalLight);
-  lights.directional = directionalLight;
-
-  // Point light for tank illumination
-  const tankLight = new THREE.PointLight(0xffaa00, 0.8, 20);
-  tankLight.position.set(0, 5, 0);
-  tankLight.castShadow = true;
-  scene.add(tankLight);
-  lights.tank = tankLight;
+function loadTankModel() {
+  const loader = new GLTFLoader();
+  
+  loader.load(
+    't-72b3_main_battle_tank/scene.gltf',
+    function (gltf) {
+      tankModel = gltf.scene;
+      
+      // Scale and position the tank model
+      tankModel.scale.set(0.5, 0.5, 0.5);
+      tankModel.position.y = 0;
+      
+      // Enable shadows for all meshes in the model
+      tankModel.traverse(function (child) {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      // Create a group to hold the tank and make it easier to control
+      tankGroup = new THREE.Group();
+      tankGroup.add(tankModel);
+      tankGroup.rotation.y = Math.PI / 2; // Rotate to face forward
+      
+      // Find the turret and barrel in the model
+      findTankComponents(tankModel);
+      
+      scene.add(tankGroup);
+      tank = tankGroup; // Set the tank reference
+    },
+    function (xhr) {
+      console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    },
+    function (error) {
+      console.error('An error happened loading the tank model:', error);
+      // Fallback to basic tank if model fails to load
+      createBasicTank();
+    }
+  );
 }
 
-function createTank() {
+function findTankComponents(model) {
+  // Look for turret and barrel components in the model
+  model.traverse(function (child) {
+    if (child.isMesh) {
+      // Try to identify turret and barrel by name or position
+      const name = child.name.toLowerCase();
+      if (name.includes('turret') || name.includes('tower')) {
+        turret = child;
+        console.log('Found turret:', child.name);
+      }
+      if (name.includes('barrel') || name.includes('gun') || name.includes('cannon')) {
+        barrel = child;
+        console.log('Found barrel:', child.name);
+      }
+    }
+  });
+  
+  // If we can't find specific components, use the main model
+  if (!turret) {
+    turret = model;
+  }
+  if (!barrel) {
+    // Create a simple barrel reference at the front of the model
+    barrel = new THREE.Object3D();
+    barrel.position.set(2, 1, 0);
+    model.add(barrel);
+  }
+}
+
+function createBasicTank() {
+  // Fallback basic tank if model loading fails
   tank = new THREE.Group();
+  tank.rotation.y = Math.PI / 2;
   scene.add(tank);
 
-  // Tank body (main hull)
-  const bodyGeometry = new THREE.BoxGeometry(3, 1.2, 4.5);
+  const bodyGeometry = new THREE.BoxGeometry(4.5, 1.2, 3);
   const bodyMaterial = new THREE.MeshLambertMaterial({ 
     color: 0x2d5016,
     roughness: 0.8,
@@ -114,56 +160,6 @@ function createTank() {
   body.receiveShadow = true;
   tank.add(body);
 
-  // Tank tracks
-  const trackGeometry = new THREE.BoxGeometry(3.2, 0.8, 4.8);
-  const trackMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-  
-  const leftTrack = new THREE.Mesh(trackGeometry, trackMaterial);
-  leftTrack.position.set(-1.8, 0.4, 0);
-  leftTrack.castShadow = true;
-  leftTrack.receiveShadow = true;
-  tank.add(leftTrack);
-
-  const rightTrack = new THREE.Mesh(trackGeometry, trackMaterial);
-  rightTrack.position.set(1.8, 0.4, 0);
-  rightTrack.castShadow = true;
-  rightTrack.receiveShadow = true;
-  tank.add(rightTrack);
-
-  // Track wheels
-  const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 8);
-  const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
-  
-  for (let i = 0; i < 6; i++) {
-    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(-1.8, 0.4, -1.5 + i * 0.6);
-    wheel.castShadow = true;
-    tank.add(wheel);
-  }
-  
-  for (let i = 0; i < 6; i++) {
-    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(1.8, 0.4, -1.5 + i * 0.6);
-    wheel.castShadow = true;
-    tank.add(wheel);
-  }
-
-  // Tank turret base
-  const turretBaseGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.8, 8);
-  const turretBaseMaterial = new THREE.MeshLambertMaterial({ 
-    color: 0x1e3a1e,
-    roughness: 0.7,
-    metalness: 0.3
-  });
-  const turretBase = new THREE.Mesh(turretBaseGeometry, turretBaseMaterial);
-  turretBase.position.y = 1.2;
-  turretBase.castShadow = true;
-  turretBase.receiveShadow = true;
-  tank.add(turretBase);
-
-  // Turret
   const turretGeometry = new THREE.CylinderGeometry(1.5, 1.5, 1, 8);
   const turretMaterial = new THREE.MeshLambertMaterial({ 
     color: 0x2d5016,
@@ -174,9 +170,8 @@ function createTank() {
   turret.position.y = 1.8;
   turret.castShadow = true;
   turret.receiveShadow = true;
-  tank.add(turret);
+  body.add(turret);
 
-  // Main gun barrel
   const barrelGeometry = new THREE.CylinderGeometry(0.15, 0.2, 3, 8);
   const barrelMaterial = new THREE.MeshLambertMaterial({ 
     color: 0x1a1a1a,
@@ -184,52 +179,63 @@ function createTank() {
     metalness: 0.8
   });
   barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-  barrel.rotation.z = Math.PI / 2;
-  barrel.position.set(0, 1.8, 2);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(2, 1.8, 0);
   barrel.castShadow = true;
   turret.add(barrel);
+}
 
-  // Tank details - hatches
-  const hatchGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8);
-  const hatchMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-  
-  const frontHatch = new THREE.Mesh(hatchGeometry, hatchMaterial);
-  frontHatch.position.set(0, 1.9, 0.5);
-  turret.add(frontHatch);
+function createLighting() {
+  // Ambient light for overall illumination
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+  scene.add(ambientLight);
 
-  const rearHatch = new THREE.Mesh(hatchGeometry, hatchMaterial);
-  rearHatch.position.set(0, 1.9, -0.5);
-  turret.add(rearHatch);
+  // Bright directional sunlight
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  directionalLight.position.set(100, 150, 100);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.width = 4096;
+  directionalLight.shadow.mapSize.height = 4096;
+  directionalLight.shadow.camera.near = 0.5;
+  directionalLight.shadow.camera.far = 800;
+  directionalLight.shadow.camera.left = -200;
+  directionalLight.shadow.camera.right = 200;
+  directionalLight.shadow.camera.top = 200;
+  directionalLight.shadow.camera.bottom = -200;
+  scene.add(directionalLight);
+  lights.directional = directionalLight;
 
-  // Tank details - side skirts
-  const skirtGeometry = new THREE.BoxGeometry(0.1, 0.6, 4);
-  const skirtMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-  
-  const leftSkirt = new THREE.Mesh(skirtGeometry, skirtMaterial);
-  leftSkirt.position.set(-1.6, 0.3, 0);
-  leftSkirt.castShadow = true;
-  tank.add(leftSkirt);
+  // Additional fill light
+  const fillLight = new THREE.DirectionalLight(0x87CEEB, 0.5);
+  fillLight.position.set(-50, 100, -50);
+  scene.add(fillLight);
 
-  const rightSkirt = new THREE.Mesh(skirtGeometry, skirtMaterial);
-  rightSkirt.position.set(1.6, 0.3, 0);
-  rightSkirt.castShadow = true;
-  tank.add(rightSkirt);
+  // Point light for tank illumination
+  const tankLight = new THREE.PointLight(0xffaa00, 0.6, 30);
+  tankLight.position.set(0, 8, 0);
+  tankLight.castShadow = true;
+  scene.add(tankLight);
+  lights.tank = tankLight;
 }
 
 function createBattlefield() {
-  // Terrain with height variation
-  const terrainGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+  // Expanded terrain with hills
+  const terrainGeometry = new THREE.PlaneGeometry(400, 400, 100, 100);
   const terrainMaterial = new THREE.MeshLambertMaterial({ 
     color: 0x3a5f3a,
     side: THREE.DoubleSide
   });
   
-  // Add height variation to terrain
+  // Add more dramatic height variation for hills
   const vertices = terrainGeometry.attributes.position.array;
   for (let i = 0; i < vertices.length; i += 3) {
     const x = vertices[i];
     const z = vertices[i + 2];
-    vertices[i + 1] = Math.sin(x * 0.02) * Math.cos(z * 0.02) * 2;
+    // Create multiple hills with different frequencies
+    vertices[i + 1] = 
+      Math.sin(x * 0.01) * Math.cos(z * 0.01) * 8 +
+      Math.sin(x * 0.03) * Math.cos(z * 0.03) * 4 +
+      Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2;
   }
   terrainGeometry.attributes.position.needsUpdate = true;
   terrainGeometry.computeVertexNormals();
@@ -239,8 +245,8 @@ function createBattlefield() {
   terrain.receiveShadow = true;
   scene.add(terrain);
 
-  // Battlefield boundaries with realistic walls
-  const wallGeometry = new THREE.BoxGeometry(100, 8, 2);
+  // Expanded battlefield boundaries
+  const wallGeometry = new THREE.BoxGeometry(200, 10, 3);
   const wallMaterial = new THREE.MeshLambertMaterial({ 
     color: 0x4a4a4a,
     roughness: 0.8,
@@ -249,14 +255,14 @@ function createBattlefield() {
 
   // North wall
   const northWall = new THREE.Mesh(wallGeometry, wallMaterial);
-  northWall.position.set(0, 4, -50);
+  northWall.position.set(0, 5, -100);
   northWall.castShadow = true;
   northWall.receiveShadow = true;
   scene.add(northWall);
 
   // South wall
   const southWall = new THREE.Mesh(wallGeometry, wallMaterial);
-  southWall.position.set(0, 4, 50);
+  southWall.position.set(0, 5, 100);
   southWall.castShadow = true;
   southWall.receiveShadow = true;
   scene.add(southWall);
@@ -264,7 +270,7 @@ function createBattlefield() {
   // East wall
   const eastWall = new THREE.Mesh(wallGeometry, wallMaterial);
   eastWall.rotation.y = Math.PI / 2;
-  eastWall.position.set(50, 4, 0);
+  eastWall.position.set(100, 5, 0);
   eastWall.castShadow = true;
   eastWall.receiveShadow = true;
   scene.add(eastWall);
@@ -272,36 +278,65 @@ function createBattlefield() {
   // West wall
   const westWall = new THREE.Mesh(wallGeometry, wallMaterial);
   westWall.rotation.y = Math.PI / 2;
-  westWall.position.set(-50, 4, 0);
+  westWall.position.set(-100, 5, 0);
   westWall.castShadow = true;
   westWall.receiveShadow = true;
   scene.add(westWall);
 
-  // Add some grass patches
-  for (let i = 0; i < 20; i++) {
+  // Add more grass patches across the expanded area
+  for (let i = 0; i < 50; i++) {
     const grassGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 4);
     const grassMaterial = new THREE.MeshLambertMaterial({ color: 0x2d5016 });
     const grass = new THREE.Mesh(grassGeometry, grassMaterial);
     grass.position.set(
-      (Math.random() - 0.5) * 80,
+      (Math.random() - 0.5) * 180,
       0.25,
-      (Math.random() - 0.5) * 80
+      (Math.random() - 0.5) * 180
     );
     grass.castShadow = true;
     scene.add(grass);
+  }
+
+  // Add some trees for atmosphere
+  for (let i = 0; i < 15; i++) {
+    const treeTrunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 4, 8);
+    const treeTrunkMaterial = new THREE.MeshLambertMaterial({ color: 0x4a2f1b });
+    const treeTrunk = new THREE.Mesh(treeTrunkGeometry, treeTrunkMaterial);
+    
+    const treeLeavesGeometry = new THREE.SphereGeometry(2, 8, 6);
+    const treeLeavesMaterial = new THREE.MeshLambertMaterial({ color: 0x2d5016 });
+    const treeLeaves = new THREE.Mesh(treeLeavesGeometry, treeLeavesMaterial);
+    treeLeaves.position.y = 3;
+    
+    const tree = new THREE.Group();
+    tree.add(treeTrunk);
+    tree.add(treeLeaves);
+    
+    tree.position.set(
+      (Math.random() - 0.5) * 160,
+      2,
+      (Math.random() - 0.5) * 160
+    );
+    tree.castShadow = true;
+    tree.receiveShadow = true;
+    scene.add(tree);
   }
 }
 
 function createObstacles() {
   const obstaclePositions = [
-    { x: 15, z: 15, scale: 3, type: 'building' },
-    { x: -20, z: 10, scale: 2.5, type: 'bunker' },
-    { x: 12, z: -18, scale: 4, type: 'building' },
-    { x: -25, z: -12, scale: 2, type: 'bunker' },
-    { x: 30, z: 20, scale: 3.5, type: 'building' },
-    { x: -30, z: 25, scale: 2.8, type: 'bunker' },
-    { x: 35, z: -30, scale: 4.5, type: 'building' },
-    { x: -35, z: -35, scale: 3.2, type: 'building' }
+    { x: 25, z: 25, scale: 4, type: 'building' },
+    { x: -30, z: 15, scale: 3, type: 'bunker' },
+    { x: 20, z: -35, scale: 5, type: 'building' },
+    { x: -40, z: -20, scale: 3.5, type: 'bunker' },
+    { x: 50, z: 30, scale: 4.5, type: 'building' },
+    { x: -50, z: 40, scale: 3.8, type: 'bunker' },
+    { x: 60, z: -50, scale: 6, type: 'building' },
+    { x: -60, z: -60, scale: 4.2, type: 'building' },
+    { x: 35, z: 60, scale: 3.5, type: 'bunker' },
+    { x: -35, z: -40, scale: 4, type: 'building' },
+    { x: 45, z: -30, scale: 3.2, type: 'bunker' },
+    { x: -45, z: 50, scale: 4.8, type: 'building' }
   ];
 
   obstaclePositions.forEach(pos => {
@@ -358,24 +393,24 @@ function createObstacles() {
 }
 
 function createAtmosphere() {
-  // Add some dust particles in the air
-  const particleCount = 100;
+  // Add more dust particles in the air
+  const particleCount = 200;
   const particleGeometry = new THREE.BufferGeometry();
   const particlePositions = new Float32Array(particleCount * 3);
   
   for (let i = 0; i < particleCount * 3; i += 3) {
-    particlePositions[i] = (Math.random() - 0.5) * 200;
-    particlePositions[i + 1] = Math.random() * 20;
-    particlePositions[i + 2] = (Math.random() - 0.5) * 200;
+    particlePositions[i] = (Math.random() - 0.5) * 400;
+    particlePositions[i + 1] = Math.random() * 30;
+    particlePositions[i + 2] = (Math.random() - 0.5) * 400;
   }
   
   particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   
   const particleMaterial = new THREE.PointsMaterial({
     color: 0xcccccc,
-    size: 0.5,
+    size: 0.8,
     transparent: true,
-    opacity: 0.3
+    opacity: 0.4
   });
   
   const particles = new THREE.Points(particleGeometry, particleMaterial);
@@ -389,52 +424,48 @@ function switchCamera(event) {
 }
 
 function handleMovement() {
+  if (!tank) return; // Wait for tank to load
+  
   const speed = 0.08;
-  const rotationSpeed = 0.025;
 
   // Calculate new position
   let newX = tank.position.x;
   let newZ = tank.position.z;
-  let newRotation = tank.rotation.y;
 
-  // Forward/backward movement
+  // Forward/backward movement (tank always moves in the direction it's facing)
   if (keys['w'] || keys['arrowup']) {
-    newX += Math.sin(tank.rotation.y) * speed;
-    newZ += Math.cos(tank.rotation.y) * speed;
+    newX += Math.cos(tank.rotation.y) * speed;
+    newZ += Math.sin(tank.rotation.y) * speed;
   }
   if (keys['s'] || keys['arrowdown']) {
-    newX -= Math.sin(tank.rotation.y) * speed;
-    newZ -= Math.cos(tank.rotation.y) * speed;
+    newX -= Math.cos(tank.rotation.y) * speed;
+    newZ -= Math.sin(tank.rotation.y) * speed;
   }
 
-  // Left/right rotation
-  if (keys['a'] || keys['arrowleft']) {
-    newRotation += rotationSpeed;
-  }
-  if (keys['d'] || keys['arrowright']) {
-    newRotation -= rotationSpeed;
-  }
+  // Tank rotation is now controlled by mouse cursor
+  // (removed A/D rotation controls)
 
   // Check collision with obstacles
   if (!checkTankCollision(newX, newZ)) {
     tank.position.x = newX;
     tank.position.z = newZ;
-    tank.rotation.y = newRotation;
   }
 
-  // Keep tank within battlefield boundaries
-  tank.position.x = Math.max(-45, Math.min(45, tank.position.x));
-  tank.position.z = Math.max(-45, Math.min(45, tank.position.z));
+  // Keep tank within expanded battlefield boundaries
+  tank.position.x = Math.max(-90, Math.min(90, tank.position.x));
+  tank.position.z = Math.max(-90, Math.min(90, tank.position.z));
 
   // Update tank light position
   if (lights.tank) {
     lights.tank.position.copy(tank.position);
-    lights.tank.position.y += 5;
+    lights.tank.position.y += 8;
   }
 }
 
 function checkTankCollision(x, z) {
-  const tankRadius = 2.5; // Larger radius for realistic tank
+  if (!tank) return false;
+  
+  const tankRadius = 3; // Larger radius for realistic tank
   
   for (const obstacle of obstacles) {
     const dx = x - obstacle.position.x;
@@ -450,12 +481,16 @@ function checkTankCollision(x, z) {
 }
 
 function rotateTurret(event) {
+  if (!tank) return; // Wait for tank to load
+  
   const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
   const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
 
   // Calculate angle based on mouse position
   const angle = Math.atan2(mouseX, mouseY);
-  turret.rotation.y = angle;
+  
+  // Rotate the entire tank to face the cursor direction
+  tank.rotation.y = angle;
 }
 
 function animate() {
@@ -467,8 +502,10 @@ function animate() {
 }
 
 function updateCameras() {
+  if (!tank) return; // Wait for tank to load
+  
   // Prevent camera from going below ground or inside tank
-  const minCameraHeight = 3;
+  const minCameraHeight = 5;
   if (camera.position.y < minCameraHeight) {
     camera.position.y = minCameraHeight;
   }
@@ -484,7 +521,7 @@ function updateCameras() {
   }
 
   // Backview camera (behind and above the tank)
-  const backviewOffset = new THREE.Vector3(0, 12, -12);
+  const backviewOffset = new THREE.Vector3(0, 15, -15);
   const backviewPos = backviewOffset.clone().applyAxisAngle(
     new THREE.Vector3(0, 1, 0),
     tank.rotation.y
@@ -494,54 +531,158 @@ function updateCameras() {
 }
 
 function shootBullet(event) {
-  if (event.code !== 'Space') return;
+  if (event.code !== 'Space' || !tank) return;
 
+  // Create a more realistic bullet
   const bullet = new THREE.Mesh(
-    new THREE.SphereGeometry(0.15),
+    new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8),
     new THREE.MeshLambertMaterial({ 
-      color: 0xffaa00,
-      emissive: 0xff4400,
-      emissiveIntensity: 0.3
+      color: 0x8B4513,
+      metalness: 0.8,
+      roughness: 0.2
     })
   );
+  
+  // Rotate bullet to point forward
+  bullet.rotation.x = Math.PI / 2;
 
-  // Get the world position of the barrel tip
-  const barrelTip = new THREE.Vector3(0, 0, 1.5);
-  barrelTip.applyMatrix4(barrel.matrixWorld);
-  bullet.position.copy(barrelTip);
+  // Get the world position of the tank hull front
+  const hullFront = new THREE.Vector3(1.5, 0.8, 0);
+  hullFront.applyMatrix4(tank.matrixWorld);
+  bullet.position.copy(hullFront);
 
-  // Calculate direction based on tank rotation and turret rotation
+  // Calculate direction based on tank rotation
   const tankRotation = tank.rotation.y;
-  const turretRotation = turret.rotation.y;
-  const totalRotation = tankRotation + turretRotation;
   
   const dir = new THREE.Vector3(
-    -Math.sin(totalRotation),
+    Math.cos(tankRotation),
     0,
-    -Math.cos(totalRotation)
+    Math.sin(tankRotation)
   );
-  bullet.userData.velocity = dir.multiplyScalar(0.8);
-  bullet.userData.life = 120; // Longer bullet life
+  bullet.userData.velocity = dir.multiplyScalar(1.2); // Faster bullets
+  bullet.userData.life = 150; // Longer bullet life
   bullet.castShadow = true;
 
   scene.add(bullet);
   bullets.push(bullet);
 
-  // Add muzzle flash effect
-  const flashGeometry = new THREE.SphereGeometry(0.3);
+  // Add realistic muzzle flash effect
+  createMuzzleFlash(hullFront, tankRotation);
+
+  // Add shell casing effect
+  createShellCasing(hullFront, tankRotation);
+}
+
+function createMuzzleFlash(position, rotation) {
+  // Create a more realistic muzzle flash
+  const flashGroup = new THREE.Group();
+  
+  // Main flash
+  const flashGeometry = new THREE.SphereGeometry(0.4);
   const flashMaterial = new THREE.MeshBasicMaterial({ 
     color: 0xffaa00,
     transparent: true,
-    opacity: 0.8
+    opacity: 0.9
   });
   const flash = new THREE.Mesh(flashGeometry, flashMaterial);
-  flash.position.copy(barrelTip);
-  scene.add(flash);
+  flash.position.copy(position);
+  flashGroup.add(flash);
+  
+  // Secondary flash particles
+  for (let i = 0; i < 8; i++) {
+    const particleGeometry = new THREE.SphereGeometry(0.1);
+    const particleMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff4400,
+      transparent: true,
+      opacity: 0.8
+    });
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    
+    // Position particles around the flash
+    const angle = (i / 8) * Math.PI * 2;
+    const radius = 0.3;
+    particle.position.set(
+      position.x + Math.cos(angle) * radius,
+      position.y + Math.random() * 0.2,
+      position.z + Math.sin(angle) * radius
+    );
+    
+    flashGroup.add(particle);
+  }
+  
+  scene.add(flashGroup);
+  
+  // Animate and remove flash
+  let opacity = 1;
+  const fadeOut = () => {
+    opacity -= 0.1;
+    flashGroup.children.forEach(child => {
+      if (child.material) {
+        child.material.opacity = opacity;
+      }
+    });
+    
+    if (opacity > 0) {
+      requestAnimationFrame(fadeOut);
+    } else {
+      scene.remove(flashGroup);
+    }
+  };
+  
+  setTimeout(fadeOut, 50);
+}
 
-  // Remove flash after a short time
-  setTimeout(() => {
-    scene.remove(flash);
-  }, 100);
+function createShellCasing(position, rotation) {
+  // Create a shell casing that ejects from the tank
+  const casingGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.1, 8);
+  const casingMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x8B4513,
+    metalness: 0.9,
+    roughness: 0.1
+  });
+  const casing = new THREE.Mesh(casingGeometry, casingMaterial);
+  
+  // Position casing at ejection point
+  const ejectionPoint = new THREE.Vector3(
+    position.x - Math.cos(rotation) * 0.5,
+    position.y + 0.3,
+    position.z - Math.sin(rotation) * 0.5
+  );
+  casing.position.copy(ejectionPoint);
+  
+  // Add physics to casing
+  casing.userData.velocity = new THREE.Vector3(
+    (Math.random() - 0.5) * 0.3,
+    Math.random() * 0.5 + 0.2,
+    (Math.random() - 0.5) * 0.3
+  );
+  casing.userData.angularVelocity = new THREE.Vector3(
+    Math.random() * 10,
+    Math.random() * 10,
+    Math.random() * 10
+  );
+  casing.userData.life = 60;
+  
+  scene.add(casing);
+  
+  // Animate casing
+  const animateCasing = () => {
+    casing.position.add(casing.userData.velocity);
+    casing.rotation.x += casing.userData.angularVelocity.x * 0.01;
+    casing.rotation.y += casing.userData.angularVelocity.y * 0.01;
+    casing.rotation.z += casing.userData.angularVelocity.z * 0.01;
+    
+    casing.userData.velocity.y -= 0.02; // Gravity
+    casing.userData.life--;
+    
+    if (casing.userData.life > 0) {
+      requestAnimationFrame(animateCasing);
+    } else {
+      scene.remove(casing);
+    }
+  };
+  
+  animateCasing();
 }
 
 function updateBullets() {
@@ -561,6 +702,9 @@ function updateBullets() {
     // Update bullet position
     bullet.position.add(bullet.userData.velocity);
 
+    // Add bullet trail effect
+    createBulletTrail(bullet.position);
+
     // Check collision with obstacles
     for (const obstacle of obstacles) {
       const dx = bullet.position.x - obstacle.position.x;
@@ -577,17 +721,43 @@ function updateBullets() {
       }
     }
 
-    // Check if bullet is out of bounds
-    if (Math.abs(bullet.position.x) > 50 || Math.abs(bullet.position.z) > 50) {
+    // Check if bullet is out of bounds (expanded area)
+    if (Math.abs(bullet.position.x) > 100 || Math.abs(bullet.position.z) > 100) {
       scene.remove(bullet);
       bullets.splice(i, 1);
     }
   }
 }
 
+function createBulletTrail(position) {
+  // Create bullet trail particles
+  const trailGeometry = new THREE.BufferGeometry();
+  const trailPositions = new Float32Array(3);
+  trailPositions[0] = position.x;
+  trailPositions[1] = position.y;
+  trailPositions[2] = position.z;
+  
+  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  
+  const trailMaterial = new THREE.PointsMaterial({
+    color: 0xffaa00,
+    size: 0.1,
+    transparent: true,
+    opacity: 0.6
+  });
+  
+  const trail = new THREE.Points(trailGeometry, trailMaterial);
+  scene.add(trail);
+  
+  // Remove trail after short time
+  setTimeout(() => {
+    scene.remove(trail);
+  }, 100);
+}
+
 function createExplosion(position) {
-  // Create explosion particles
-  const particleCount = 20;
+  // Create more realistic explosion particles
+  const particleCount = 30;
   const particleGeometry = new THREE.BufferGeometry();
   const particlePositions = new Float32Array(particleCount * 3);
   const particleVelocities = [];
@@ -598,10 +768,11 @@ function createExplosion(position) {
     particlePositions[i + 2] = position.z;
     
     particleVelocities.push({
-      x: (Math.random() - 0.5) * 0.2,
-      y: Math.random() * 0.3,
-      z: (Math.random() - 0.5) * 0.2,
-      life: 30
+      x: (Math.random() - 0.5) * 0.4,
+      y: Math.random() * 0.6,
+      z: (Math.random() - 0.5) * 0.4,
+      life: 40,
+      color: Math.random() > 0.5 ? 0xff4400 : 0xffaa00
     });
   }
   
@@ -609,7 +780,7 @@ function createExplosion(position) {
   
   const particleMaterial = new THREE.PointsMaterial({
     color: 0xff4400,
-    size: 0.3,
+    size: 0.4,
     transparent: true,
     opacity: 1
   });
@@ -629,12 +800,12 @@ function createExplosion(position) {
       positions[idx + 1] += velocities[i].y;
       positions[idx + 2] += velocities[i].z;
       
-      velocities[i].y -= 0.01; // Gravity
+      velocities[i].y -= 0.015; // Gravity
       velocities[i].life--;
     }
     
     explosion.geometry.attributes.position.needsUpdate = true;
-    explosion.material.opacity = velocities[0].life / 30;
+    explosion.material.opacity = velocities[0].life / 40;
     
     if (velocities[0].life > 0) {
       requestAnimationFrame(animateExplosion);

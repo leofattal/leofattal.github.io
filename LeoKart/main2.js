@@ -13,7 +13,7 @@ const keyboard = {};
 let track;
 const obstacleBoxes = [];
 let trackId = 0; // Initial track ID
-const numTracks = 2; // Total number of tracks
+const numTracks = 3; // Total number of tracks
 
 const timerDiv = document.getElementById('timer');
 const finishDiv = document.getElementById('best');
