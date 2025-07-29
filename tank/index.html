@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Tank Battle Arena</title>
+  <title>Realistic Tank Battle Arena</title>
   <script type="importmap">
   {
     "imports": {
@@ -17,15 +17,78 @@
       margin: 0;
       overflow: hidden;
       background: #111;
+      font-family: Arial, sans-serif;
     }
 
     canvas {
       display: block;
     }
+
+    .instructions {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      max-width: 350px;
+      border: 1px solid #333;
+    }
+
+    .instructions h3 {
+      margin: 0 0 15px 0;
+      color: #00ff00;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    .instructions ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin: 8px 0;
+    }
+
+    .features {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #333;
+    }
+
+    .features h4 {
+      margin: 0 0 10px 0;
+      color: #ffaa00;
+    }
   </style>
 </head>
 
 <body>
+  <div class="instructions">
+    <h3>🎮 Realistic Tank Controls</h3>
+    <ul>
+      <li><strong>WASD</strong> or <strong>Arrow Keys</strong>: Move tank</li>
+      <li><strong>Mouse</strong>: Aim turret</li>
+      <li><strong>Spacebar</strong>: Shoot bullets</li>
+      <li><strong>C</strong>: Switch camera view</li>
+    </ul>
+    
+    <div class="features">
+      <h4>🌟 Realistic Features:</h4>
+      <ul>
+        <li>Detailed tank model with tracks & turret</li>
+        <li>Realistic lighting & shadows</li>
+        <li>Atmospheric fog & particles</li>
+        <li>Terrain with height variation</li>
+        <li>Building & bunker obstacles</li>
+        <li>Muzzle flash & explosion effects</li>
+        <li>Physics & collision detection</li>
+        <li>Dual camera views</li>
+      </ul>
+    </div>
+  </div>
   <script type="module" src="main.js"></script>
 </body>
 
