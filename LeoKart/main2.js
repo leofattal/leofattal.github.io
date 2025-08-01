@@ -892,8 +892,6 @@ function render() {
     // VR controller input handling
     if (isVRMode) {
         checkXButtonState();
-        // Update XR Reference Space CONTINUOUSLY for perfect sync (like Spaces project)
-        updateXRSpaceToFollowKart();
     }
 
     // ============= PHYSICS AND GAME LOGIC PHASE =============
@@ -1036,6 +1034,11 @@ function render() {
     }
 
     // ============= ALL PHYSICS COMPLETE - NOW RENDER PHASE =============
+
+    // Update XR Reference Space AFTER physics, BEFORE rendering - PERFECT SYNC! 
+    if (isVRMode) {
+        updateXRSpaceToFollowKart();
+    }
 
     // Render the scene
     renderer.render(scene, camera);
