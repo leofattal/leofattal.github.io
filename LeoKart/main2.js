@@ -72,6 +72,20 @@ let timingAnalysis = {
     stats: {}
 };
 
+// Fixed-Rate Reference Space Update System (SOLUTION FOR IRREGULAR WEBXR)
+let fixedRateSystem = {
+    enabled: false,
+    targetFPS: 60, // Smooth 60Hz updates regardless of WebXR irregularity
+    interval: null,
+    lastKartPosition: new THREE.Vector3(),
+    lastKartQuaternion: new THREE.Quaternion(),
+    interpolatedPosition: new THREE.Vector3(),
+    interpolatedQuaternion: new THREE.Quaternion(),
+    smoothingFactor: 0.15, // How much to smooth (0.1 = very smooth, 0.5 = more responsive)
+    updateCount: 0,
+    startTime: 0
+};
+
 const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
 
 // WebXR Frame Rate Detection Functions
@@ -360,6 +374,122 @@ function analyzeTimingData() {
 
     // Make data available globally for inspection
     window.timingAnalysis = analysis;
+}
+
+// ============= FIXED-RATE REFERENCE SPACE UPDATE SYSTEM =============
+// This system runs camera updates at a regular 60Hz, independent of WebXR's irregular timing
+
+function startFixedRateSystem() {
+    if (fixedRateSystem.enabled) return;
+
+    console.log("🚀 Starting Fixed-Rate Reference Space Update System");
+    console.log(`   Target rate: ${fixedRateSystem.targetFPS}Hz (${(1000 / fixedRateSystem.targetFPS).toFixed(1)}ms intervals)`);
+    console.log(`   Smoothing factor: ${fixedRateSystem.smoothingFactor} (lower = smoother)`);
+
+    fixedRateSystem.enabled = true;
+    fixedRateSystem.updateCount = 0;
+    fixedRateSystem.startTime = performance.now();
+
+    // Initialize with current kart position
+    if (kart) {
+        fixedRateSystem.lastKartPosition.copy(kart.position);
+        fixedRateSystem.lastKartQuaternion.copy(kart.quaternion);
+        fixedRateSystem.interpolatedPosition.copy(kart.position);
+        fixedRateSystem.interpolatedQuaternion.copy(kart.quaternion);
+    }
+
+    // Start the fixed-rate timer
+    const intervalMs = 1000 / fixedRateSystem.targetFPS;
+    fixedRateSystem.interval = setInterval(updateReferenceSpaceFixedRate, intervalMs);
+
+    console.log("✅ Fixed-rate system started - camera should now be smooth!");
+}
+
+function stopFixedRateSystem() {
+    if (!fixedRateSystem.enabled) return;
+
+    console.log("⏹️  Stopping Fixed-Rate Reference Space Update System");
+
+    if (fixedRateSystem.interval) {
+        clearInterval(fixedRateSystem.interval);
+        fixedRateSystem.interval = null;
+    }
+
+    // Log performance stats
+    const totalTime = performance.now() - fixedRateSystem.startTime;
+    const actualRate = fixedRateSystem.updateCount / (totalTime / 1000);
+
+    console.log(`📊 Fixed-rate system stats:`);
+    console.log(`   Target rate: ${fixedRateSystem.targetFPS}Hz`);
+    console.log(`   Actual rate: ${actualRate.toFixed(1)}Hz`);
+    console.log(`   Total updates: ${fixedRateSystem.updateCount}`);
+    console.log(`   Runtime: ${(totalTime / 1000).toFixed(2)}s`);
+
+    fixedRateSystem.enabled = false;
+}
+
+function updateReferenceSpaceFixedRate() {
+    if (!isVRMode || !kart || !baseReferenceSpace) return;
+
+    // Get current kart state
+    const currentPosition = kart.position.clone();
+    const currentQuaternion = kart.quaternion.clone();
+
+    // Smooth interpolation towards current kart position
+    // This eliminates jitter from physics irregularities
+    fixedRateSystem.interpolatedPosition.lerp(currentPosition, fixedRateSystem.smoothingFactor);
+    fixedRateSystem.interpolatedQuaternion.slerp(currentQuaternion, fixedRateSystem.smoothingFactor);
+
+    // Apply the vrReferencePosition offset in kart's local coordinate system
+    const cameraTargetPosition = fixedRateSystem.interpolatedPosition.clone();
+    const offsetVector = vrReferencePosition.clone(); // (0, 0.5, 2)
+    offsetVector.applyQuaternion(fixedRateSystem.interpolatedQuaternion); // Transform to world space
+    cameraTargetPosition.add(offsetVector);
+
+    // Create transform as if positioning an object at the camera target position
+    const transform = new XRRigidTransform(
+        {
+            x: cameraTargetPosition.x,
+            y: cameraTargetPosition.y,
+            z: cameraTargetPosition.z
+        },
+        {
+            x: fixedRateSystem.interpolatedQuaternion.x,
+            y: fixedRateSystem.interpolatedQuaternion.y,
+            z: fixedRateSystem.interpolatedQuaternion.z,
+            w: fixedRateSystem.interpolatedQuaternion.w
+        }
+    );
+
+    // Apply the INVERSE to create the reference space
+    currentReferenceSpace = baseReferenceSpace.getOffsetReferenceSpace(transform.inverse);
+
+    // Set the New Reference Space using correct Three.js API
+    renderer.xr.setReferenceSpace(currentReferenceSpace);
+
+    fixedRateSystem.updateCount++;
+
+    // Debug logging every 2 seconds
+    if (fixedRateSystem.updateCount % (fixedRateSystem.targetFPS * 2) === 0) {
+        const runtime = performance.now() - fixedRateSystem.startTime;
+        const actualRate = fixedRateSystem.updateCount / (runtime / 1000);
+        console.log(`🔄 Fixed-rate system: ${actualRate.toFixed(1)}Hz (${fixedRateSystem.updateCount} updates in ${(runtime / 1000).toFixed(1)}s)`);
+    }
+}
+
+// Adjust smoothing dynamically based on movement speed
+function updateSmoothingFactor() {
+    if (!kart || !fixedRateSystem.enabled) return;
+
+    const speed = velocity; // Current kart velocity
+    const maxSpeed = 3.5 * scaleFactor;
+    const speedRatio = Math.abs(speed) / maxSpeed;
+
+    // More responsive when moving fast, smoother when moving slow
+    const minSmoothing = 0.08;  // Very smooth when stationary
+    const maxSmoothing = 0.25;  // More responsive when moving fast
+
+    fixedRateSystem.smoothingFactor = minSmoothing + (speedRatio * (maxSmoothing - minSmoothing));
 }
 
 function isMobileDevice() {
@@ -1353,10 +1483,13 @@ function render() {
 
     // ============= ALL PHYSICS COMPLETE - NOW RENDER PHASE =============
 
-    // Update XR Reference Space AFTER physics, BEFORE rendering - PERFECT SYNC! 
-    if (isVRMode) {
-        updateXRSpaceToFollowKart();
+    // Update smoothing factor based on kart speed (for fixed-rate system)
+    if (isVRMode && fixedRateSystem.enabled) {
+        updateSmoothingFactor();
     }
+
+    // NOTE: Reference space updates now handled by fixed-rate system, not here!
+    // This eliminates the WebXR timing irregularity issue
 
     // Render the scene
     renderer.render(scene, camera);
@@ -1429,6 +1562,12 @@ function setupVRButton() {
             stopTimingAnalysis();
         }
 
+        // Stop fixed-rate system
+        if (fixedRateSystem.enabled) {
+            console.log("⏹️  Auto-stopping fixed-rate system due to VR session end");
+            stopFixedRateSystem();
+        }
+
         isVRMode = false;
         vrToggle.textContent = 'Enter VR';
 
@@ -1497,6 +1636,13 @@ function setupVRButton() {
             baseReferenceSpace = referenceSpace;
             currentReferenceSpace = referenceSpace;
             console.log("VR reference space initialized following movingSpaces.md");
+
+            // Start the fixed-rate system once reference space is ready
+            setTimeout(() => {
+                startFixedRateSystem();
+                console.log("🎯 Fixed-rate system should eliminate the jittery kart issue!");
+            }, 500); // Small delay to ensure everything is initialized
+
         }).catch((error) => {
             console.error("Failed to get reference space:", error);
         });
@@ -1727,6 +1873,56 @@ window.vrAnalysis = {
     }
 };
 
-console.log("\n🔧 WebXR Timing Analysis Ready!");
-console.log("💡 Type 'vrAnalysis.help()' in console for commands");
-console.log("⚡ Analysis will auto-start when entering VR mode\n"); 
+// Fixed-rate system console controls
+window.fixedRate = {
+    start: startFixedRateSystem,
+    stop: stopFixedRateSystem,
+    setFPS: function (fps) {
+        if (fixedRateSystem.enabled) {
+            console.log("⚠️  Stop the system first with fixedRate.stop()");
+            return;
+        }
+        fixedRateSystem.targetFPS = fps;
+        console.log(`✅ Target FPS set to ${fps}Hz`);
+    },
+    setSmoothing: function (factor) {
+        if (factor < 0.01 || factor > 1.0) {
+            console.log("⚠️  Smoothing factor must be between 0.01 (very smooth) and 1.0 (instant)");
+            return;
+        }
+        fixedRateSystem.smoothingFactor = factor;
+        console.log(`✅ Smoothing factor set to ${factor} (${factor < 0.1 ? 'very smooth' : factor < 0.3 ? 'smooth' : 'responsive'})`);
+    },
+    status: function () {
+        console.log("\n🔄 FIXED-RATE SYSTEM STATUS:");
+        console.log(`   Enabled: ${fixedRateSystem.enabled}`);
+        console.log(`   Target FPS: ${fixedRateSystem.targetFPS}Hz`);
+        console.log(`   Smoothing: ${fixedRateSystem.smoothingFactor}`);
+        if (fixedRateSystem.enabled) {
+            const runtime = performance.now() - fixedRateSystem.startTime;
+            const actualRate = fixedRateSystem.updateCount / (runtime / 1000);
+            console.log(`   Actual rate: ${actualRate.toFixed(1)}Hz`);
+            console.log(`   Updates: ${fixedRateSystem.updateCount}`);
+            console.log(`   Runtime: ${(runtime / 1000).toFixed(1)}s`);
+        }
+        console.log("");
+    },
+    help: function () {
+        console.log("\n🚀 FIXED-RATE SYSTEM CONSOLE COMMANDS:");
+        console.log("   fixedRate.start()        - Start fixed-rate camera updates");
+        console.log("   fixedRate.stop()         - Stop fixed-rate system");
+        console.log("   fixedRate.setFPS(60)     - Set target update rate (30-120)");
+        console.log("   fixedRate.setSmoothing(0.15) - Set smoothing (0.01=smooth, 0.5=responsive)");
+        console.log("   fixedRate.status()       - Show current status and performance");
+        console.log("   fixedRate.help()         - Show this help");
+        console.log("\n💡 RECOMMENDED SETTINGS:");
+        console.log("   60Hz + 0.15 smoothing = Good balance");
+        console.log("   90Hz + 0.10 smoothing = Very smooth");
+        console.log("   30Hz + 0.25 smoothing = Performance mode\n");
+    }
+};
+
+console.log("\n🔧 WebXR Timing Analysis & Fixed-Rate System Ready!");
+console.log("💡 Type 'vrAnalysis.help()' for timing analysis commands");
+console.log("🚀 Type 'fixedRate.help()' for smoothness fix commands");
+console.log("⚡ Both systems will auto-start when entering VR mode\n"); 
