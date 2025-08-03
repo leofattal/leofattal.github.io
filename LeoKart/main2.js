@@ -51,7 +51,446 @@ let vrReferenceRotation = new THREE.Euler(0, 0, 0); // Reference rotation for ka
 let baseReferenceSpace = null; // Store the original reference space
 let currentReferenceSpace = null; // Current offset reference space following kart
 
+// WebXR Frame Rate Detection
+let vrFrameRate = 90; // Default assumption
+let frameTimeHistory = [];
+let lastFrameTime = 0;
+
+// Comprehensive WebXR Timing Analysis
+let timingAnalysis = {
+    enabled: false,
+    frameCount: 0,
+    startTime: 0,
+    frameTimings: [],
+    deltaTimings: [],
+    webxrCallTimings: [],
+    lastWebXRCall: 0,
+    renderCallTimings: [],
+    lastRenderCall: 0,
+    maxSamples: 300, // 5 seconds at 60fps
+    irregularFrames: [],
+    stats: {}
+};
+
+// Fixed-Rate Reference Space Update System (SOLUTION FOR IRREGULAR WEBXR)
+let fixedRateSystem = {
+    enabled: false,
+    targetFPS: 60, // Smooth 60Hz updates regardless of WebXR irregularity
+    interval: null,
+    lastKartPosition: new THREE.Vector3(),
+    lastKartQuaternion: new THREE.Quaternion(),
+    interpolatedPosition: new THREE.Vector3(),
+    interpolatedQuaternion: new THREE.Quaternion(),
+    smoothingFactor: 0.15, // How much to smooth (0.1 = very smooth, 0.5 = more responsive)
+    updateCount: 0,
+    startTime: 0
+};
+
 const raycaster = new THREE.Raycaster(), downDirection = new THREE.Vector3(0, -1, 0), raycasterFront = new THREE.Raycaster();
+
+// WebXR Frame Rate Detection Functions
+function detectVRFrameRate(session) {
+    // Method 1: Check if session has frameRate property (newer WebXR)
+    if (session.frameRate) {
+        vrFrameRate = session.frameRate;
+        console.log(`WebXR Frame Rate (session.frameRate): ${vrFrameRate}Hz`);
+        return vrFrameRate;
+    }
+
+    // Method 2: Check supported frame rates
+    if (session.supportedFrameRates && session.supportedFrameRates.length > 0) {
+        // Usually returns highest supported rate
+        vrFrameRate = Math.max(...session.supportedFrameRates);
+        console.log(`WebXR Frame Rate (supportedFrameRates): ${vrFrameRate}Hz`);
+        return vrFrameRate;
+    }
+
+    // Method 3: Start frame timing measurement
+    console.log('Starting WebXR frame rate measurement...');
+    startFrameRateMeasurement();
+
+    return vrFrameRate; // Return default until measurement completes
+}
+
+function startFrameRateMeasurement() {
+    frameTimeHistory = [];
+    lastFrameTime = performance.now();
+}
+
+function measureFrameRate() {
+    if (!isVRMode || frameTimeHistory.length >= 60) return; // Stop after 60 samples
+
+    const currentTime = performance.now();
+    if (lastFrameTime > 0) {
+        const frameTime = currentTime - lastFrameTime;
+        frameTimeHistory.push(frameTime);
+
+        // Calculate frame rate after collecting enough samples
+        if (frameTimeHistory.length === 60) {
+            const avgFrameTime = frameTimeHistory.reduce((a, b) => a + b) / frameTimeHistory.length;
+            const measuredFrameRate = Math.round(1000 / avgFrameTime);
+
+            // Snap to common VR refresh rates
+            if (measuredFrameRate >= 85 && measuredFrameRate <= 95) {
+                vrFrameRate = 90;
+            } else if (measuredFrameRate >= 67 && measuredFrameRate <= 77) {
+                vrFrameRate = 72;
+            } else if (measuredFrameRate >= 115 && measuredFrameRate <= 125) {
+                vrFrameRate = 120;
+            } else {
+                vrFrameRate = measuredFrameRate;
+            }
+
+            console.log(`WebXR Frame Rate (measured): ${vrFrameRate}Hz (avg frame time: ${avgFrameTime.toFixed(2)}ms)`);
+        }
+    }
+    lastFrameTime = currentTime;
+}
+
+function getVRFrameRate() {
+    return vrFrameRate;
+}
+
+// Display current VR frame rate info
+function displayVRFrameRateInfo() {
+    console.log(`Current WebXR Frame Rate: ${vrFrameRate}Hz (${(1000 / vrFrameRate).toFixed(2)}ms per frame)`);
+    return vrFrameRate;
+}
+
+// Alternative method: Use XRFrame timing (if available)
+function getXRFrameTiming(frame) {
+    if (frame && frame.session && frame.session.requestAnimationFrame) {
+        // Some WebXR implementations provide timing info
+        const session = frame.session;
+        if (session.frameRate) {
+            return session.frameRate;
+        }
+    }
+    return null;
+}
+
+// ============= COMPREHENSIVE WEBXR TIMING ANALYSIS =============
+
+function startTimingAnalysis() {
+    console.log("🔍 Starting comprehensive WebXR timing analysis...");
+    timingAnalysis.enabled = true;
+    timingAnalysis.frameCount = 0;
+    timingAnalysis.startTime = performance.now();
+    timingAnalysis.frameTimings = [];
+    timingAnalysis.deltaTimings = [];
+    timingAnalysis.webxrCallTimings = [];
+    timingAnalysis.renderCallTimings = [];
+    timingAnalysis.lastWebXRCall = 0;
+    timingAnalysis.lastRenderCall = 0;
+    timingAnalysis.irregularFrames = [];
+    timingAnalysis.stats = {};
+
+    console.log(`📊 Will collect ${timingAnalysis.maxSamples} samples for analysis`);
+}
+
+function stopTimingAnalysis() {
+    if (!timingAnalysis.enabled) return;
+
+    timingAnalysis.enabled = false;
+    console.log("⏹️  Stopping timing analysis...");
+
+    analyzeTimingData();
+}
+
+function recordFrameTiming(delta) {
+    if (!timingAnalysis.enabled || timingAnalysis.frameCount >= timingAnalysis.maxSamples) {
+        if (timingAnalysis.frameCount >= timingAnalysis.maxSamples && timingAnalysis.enabled) {
+            stopTimingAnalysis();
+        }
+        return;
+    }
+
+    const now = performance.now();
+    const frameTime = timingAnalysis.lastRenderCall > 0 ? now - timingAnalysis.lastRenderCall : 0;
+
+    if (frameTime > 0) {
+        timingAnalysis.frameTimings.push(frameTime);
+        timingAnalysis.renderCallTimings.push(now);
+
+        // Track irregular frames (more than 50% deviation from expected)
+        const expectedFrameTime = 1000 / 60; // Start with 60fps assumption
+        if (Math.abs(frameTime - expectedFrameTime) > expectedFrameTime * 0.5) {
+            timingAnalysis.irregularFrames.push({
+                frameIndex: timingAnalysis.frameCount,
+                frameTime: frameTime,
+                expectedTime: expectedFrameTime,
+                deviation: frameTime - expectedFrameTime
+            });
+        }
+    }
+
+    timingAnalysis.deltaTimings.push(delta * 1000); // Convert to ms
+    timingAnalysis.lastRenderCall = now;
+    timingAnalysis.frameCount++;
+
+    // Progress logging
+    if (timingAnalysis.frameCount % 60 === 0) {
+        console.log(`📈 Timing analysis progress: ${timingAnalysis.frameCount}/${timingAnalysis.maxSamples} frames`);
+    }
+}
+
+function recordWebXRCall() {
+    if (!timingAnalysis.enabled) return;
+
+    const now = performance.now();
+    if (timingAnalysis.lastWebXRCall > 0) {
+        const interval = now - timingAnalysis.lastWebXRCall;
+        timingAnalysis.webxrCallTimings.push(interval);
+    }
+    timingAnalysis.lastWebXRCall = now;
+}
+
+function analyzeTimingData() {
+    const analysis = timingAnalysis;
+    const totalTime = performance.now() - analysis.startTime;
+
+    console.log("\n" + "=".repeat(60));
+    console.log("📊 COMPREHENSIVE WEBXR TIMING ANALYSIS RESULTS");
+    console.log("=".repeat(60));
+
+    // Basic statistics
+    console.log(`⏱️  Total analysis time: ${(totalTime / 1000).toFixed(2)}s`);
+    console.log(`🎬 Total frames analyzed: ${analysis.frameCount}`);
+    console.log(`📈 Average FPS: ${(analysis.frameCount / (totalTime / 1000)).toFixed(2)}`);
+
+    // Frame timing analysis
+    if (analysis.frameTimings.length > 0) {
+        const frameTimes = analysis.frameTimings;
+        const avgFrameTime = frameTimes.reduce((a, b) => a + b) / frameTimes.length;
+        const minFrameTime = Math.min(...frameTimes);
+        const maxFrameTime = Math.max(...frameTimes);
+        const medianFrameTime = frameTimes.sort((a, b) => a - b)[Math.floor(frameTimes.length / 2)];
+
+        console.log("\n🎬 FRAME TIMING ANALYSIS:");
+        console.log(`   Average frame time: ${avgFrameTime.toFixed(3)}ms (${(1000 / avgFrameTime).toFixed(1)}fps)`);
+        console.log(`   Median frame time:  ${medianFrameTime.toFixed(3)}ms (${(1000 / medianFrameTime).toFixed(1)}fps)`);
+        console.log(`   Min frame time:     ${minFrameTime.toFixed(3)}ms (${(1000 / minFrameTime).toFixed(1)}fps)`);
+        console.log(`   Max frame time:     ${maxFrameTime.toFixed(3)}ms (${(1000 / maxFrameTime).toFixed(1)}fps)`);
+
+        // Frame time consistency
+        const variance = frameTimes.reduce((acc, time) => acc + Math.pow(time - avgFrameTime, 2), 0) / frameTimes.length;
+        const stdDev = Math.sqrt(variance);
+        console.log(`   Standard deviation: ${stdDev.toFixed(3)}ms (${((stdDev / avgFrameTime) * 100).toFixed(1)}%)`);
+
+        // Detect if timing is regular
+        const regularityThreshold = 2.0; // ms
+        const regularFrames = frameTimes.filter(time => Math.abs(time - avgFrameTime) < regularityThreshold).length;
+        const regularityPercentage = (regularFrames / frameTimes.length) * 100;
+        console.log(`   Regularity: ${regularityPercentage.toFixed(1)}% of frames within ±${regularityThreshold}ms`);
+
+        if (regularityPercentage > 90) {
+            console.log(`   ✅ WebXR calls appear REGULAR`);
+        } else if (regularityPercentage > 70) {
+            console.log(`   ⚠️  WebXR calls are SOMEWHAT IRREGULAR`);
+        } else {
+            console.log(`   ❌ WebXR calls are HIGHLY IRREGULAR`);
+        }
+    }
+
+    // Delta timing analysis
+    if (analysis.deltaTimings.length > 0) {
+        const deltaTimes = analysis.deltaTimings;
+        const avgDelta = deltaTimes.reduce((a, b) => a + b) / deltaTimes.length;
+        const minDelta = Math.min(...deltaTimes);
+        const maxDelta = Math.max(...deltaTimes);
+
+        console.log("\n⏲️  THREE.JS DELTA TIMING ANALYSIS:");
+        console.log(`   Average delta: ${avgDelta.toFixed(3)}ms`);
+        console.log(`   Min delta:     ${minDelta.toFixed(3)}ms`);
+        console.log(`   Max delta:     ${maxDelta.toFixed(3)}ms`);
+
+        // Compare delta vs frame timing
+        if (analysis.frameTimings.length > 0) {
+            const avgFrameTime = analysis.frameTimings.reduce((a, b) => a + b) / analysis.frameTimings.length;
+            const deltaVsFrame = Math.abs(avgDelta - avgFrameTime);
+            console.log(`   Delta vs Frame diff: ${deltaVsFrame.toFixed(3)}ms`);
+
+            if (deltaVsFrame > 2.0) {
+                console.log(`   ⚠️  SIGNIFICANT MISMATCH between delta and frame timing!`);
+            } else {
+                console.log(`   ✅ Delta and frame timing are aligned`);
+            }
+        }
+    }
+
+    // WebXR call interval analysis
+    if (analysis.webxrCallTimings.length > 0) {
+        const intervals = analysis.webxrCallTimings;
+        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+        const minInterval = Math.min(...intervals);
+        const maxInterval = Math.max(...intervals);
+
+        console.log("\n🔄 WEBXR CALL INTERVAL ANALYSIS:");
+        console.log(`   Average interval: ${avgInterval.toFixed(3)}ms`);
+        console.log(`   Min interval:     ${minInterval.toFixed(3)}ms`);
+        console.log(`   Max interval:     ${maxInterval.toFixed(3)}ms`);
+        console.log(`   Effective rate:   ${(1000 / avgInterval).toFixed(1)}Hz`);
+    }
+
+    // Irregular frames
+    if (analysis.irregularFrames.length > 0) {
+        console.log(`\n⚠️  IRREGULAR FRAMES DETECTED: ${analysis.irregularFrames.length}`);
+        console.log("   Top 5 most irregular frames:");
+        const topIrregular = analysis.irregularFrames
+            .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation))
+            .slice(0, 5);
+
+        topIrregular.forEach((frame, i) => {
+            console.log(`   ${i + 1}. Frame ${frame.frameIndex}: ${frame.frameTime.toFixed(3)}ms (${frame.deviation.toFixed(3)}ms deviation)`);
+        });
+    }
+
+    // Recommendations
+    console.log("\n💡 RECOMMENDATIONS:");
+    if (analysis.frameTimings.length > 0) {
+        const avgFrameTime = analysis.frameTimings.reduce((a, b) => a + b) / analysis.frameTimings.length;
+        const detectedFPS = Math.round(1000 / avgFrameTime);
+
+        // Common frame rates to check against
+        const commonRates = [24, 30, 48, 60, 72, 90, 120, 144];
+        const closestRate = commonRates.reduce((prev, curr) =>
+            Math.abs(curr - detectedFPS) < Math.abs(prev - detectedFPS) ? curr : prev
+        );
+
+        console.log(`   Detected frame rate: ~${detectedFPS}Hz`);
+        console.log(`   Closest standard rate: ${closestRate}Hz`);
+        console.log(`   Recommended fixed timestep: ${(1000 / closestRate).toFixed(4)}ms`);
+
+        if (Math.abs(detectedFPS - closestRate) > 5) {
+            console.log(`   ⚠️  Non-standard frame rate detected! May need custom timing logic.`);
+        }
+    }
+
+    console.log("\n🔍 For further analysis, inspect:");
+    console.log("   window.timingAnalysis.frameTimings - Raw frame timing data");
+    console.log("   window.timingAnalysis.deltaTimings - Three.js delta timing data");
+    console.log("   window.timingAnalysis.webxrCallTimings - WebXR call intervals");
+    console.log("=".repeat(60) + "\n");
+
+    // Make data available globally for inspection
+    window.timingAnalysis = analysis;
+}
+
+// ============= FIXED-RATE REFERENCE SPACE UPDATE SYSTEM =============
+// This system runs camera updates at a regular 60Hz, independent of WebXR's irregular timing
+
+function startFixedRateSystem() {
+    if (fixedRateSystem.enabled) return;
+
+    console.log("🚀 Starting Fixed-Rate Reference Space Update System");
+    console.log(`   Target rate: ${fixedRateSystem.targetFPS}Hz (${(1000 / fixedRateSystem.targetFPS).toFixed(1)}ms intervals)`);
+    console.log(`   Smoothing factor: ${fixedRateSystem.smoothingFactor} (lower = smoother)`);
+
+    fixedRateSystem.enabled = true;
+    fixedRateSystem.updateCount = 0;
+    fixedRateSystem.startTime = performance.now();
+
+    // Initialize with current kart position
+    if (kart) {
+        fixedRateSystem.lastKartPosition.copy(kart.position);
+        fixedRateSystem.lastKartQuaternion.copy(kart.quaternion);
+        fixedRateSystem.interpolatedPosition.copy(kart.position);
+        fixedRateSystem.interpolatedQuaternion.copy(kart.quaternion);
+    }
+
+    // Start the fixed-rate timer
+    const intervalMs = 1000 / fixedRateSystem.targetFPS;
+    fixedRateSystem.interval = setInterval(updateReferenceSpaceFixedRate, intervalMs);
+
+    console.log("✅ Fixed-rate system started - camera should now be smooth!");
+}
+
+function stopFixedRateSystem() {
+    if (!fixedRateSystem.enabled) return;
+
+    console.log("⏹️  Stopping Fixed-Rate Reference Space Update System");
+
+    if (fixedRateSystem.interval) {
+        clearInterval(fixedRateSystem.interval);
+        fixedRateSystem.interval = null;
+    }
+
+    // Log performance stats
+    const totalTime = performance.now() - fixedRateSystem.startTime;
+    const actualRate = fixedRateSystem.updateCount / (totalTime / 1000);
+
+    console.log(`📊 Fixed-rate system stats:`);
+    console.log(`   Target rate: ${fixedRateSystem.targetFPS}Hz`);
+    console.log(`   Actual rate: ${actualRate.toFixed(1)}Hz`);
+    console.log(`   Total updates: ${fixedRateSystem.updateCount}`);
+    console.log(`   Runtime: ${(totalTime / 1000).toFixed(2)}s`);
+
+    fixedRateSystem.enabled = false;
+}
+
+function updateReferenceSpaceFixedRate() {
+    if (!isVRMode || !kart || !baseReferenceSpace) return;
+
+    // Get current kart state
+    const currentPosition = kart.position.clone();
+    const currentQuaternion = kart.quaternion.clone();
+
+    // Smooth interpolation towards current kart position
+    // This eliminates jitter from physics irregularities
+    fixedRateSystem.interpolatedPosition.lerp(currentPosition, fixedRateSystem.smoothingFactor);
+    fixedRateSystem.interpolatedQuaternion.slerp(currentQuaternion, fixedRateSystem.smoothingFactor);
+
+    // Apply the vrReferencePosition offset in kart's local coordinate system
+    const cameraTargetPosition = fixedRateSystem.interpolatedPosition.clone();
+    const offsetVector = vrReferencePosition.clone(); // (0, 0.5, 2)
+    offsetVector.applyQuaternion(fixedRateSystem.interpolatedQuaternion); // Transform to world space
+    cameraTargetPosition.add(offsetVector);
+
+    // Create transform as if positioning an object at the camera target position
+    const transform = new XRRigidTransform(
+        {
+            x: cameraTargetPosition.x,
+            y: cameraTargetPosition.y,
+            z: cameraTargetPosition.z
+        },
+        {
+            x: fixedRateSystem.interpolatedQuaternion.x,
+            y: fixedRateSystem.interpolatedQuaternion.y,
+            z: fixedRateSystem.interpolatedQuaternion.z,
+            w: fixedRateSystem.interpolatedQuaternion.w
+        }
+    );
+
+    // Apply the INVERSE to create the reference space
+    currentReferenceSpace = baseReferenceSpace.getOffsetReferenceSpace(transform.inverse);
+
+    // Set the New Reference Space using correct Three.js API
+    renderer.xr.setReferenceSpace(currentReferenceSpace);
+
+    fixedRateSystem.updateCount++;
+
+    // Debug logging every 2 seconds
+    if (fixedRateSystem.updateCount % (fixedRateSystem.targetFPS * 2) === 0) {
+        const runtime = performance.now() - fixedRateSystem.startTime;
+        const actualRate = fixedRateSystem.updateCount / (runtime / 1000);
+        console.log(`🔄 Fixed-rate system: ${actualRate.toFixed(1)}Hz (${fixedRateSystem.updateCount} updates in ${(runtime / 1000).toFixed(1)}s)`);
+    }
+}
+
+// Adjust smoothing dynamically based on movement speed
+function updateSmoothingFactor() {
+    if (!kart || !fixedRateSystem.enabled) return;
+
+    const speed = velocity; // Current kart velocity
+    const maxSpeed = 3.5 * scaleFactor;
+    const speedRatio = Math.abs(speed) / maxSpeed;
+
+    // More responsive when moving fast, smoother when moving slow
+    const minSmoothing = 0.08;  // Very smooth when stationary
+    const maxSmoothing = 0.25;  // More responsive when moving fast
+
+    fixedRateSystem.smoothingFactor = minSmoothing + (speedRatio * (maxSmoothing - minSmoothing));
+}
 
 function isMobileDevice() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -872,12 +1311,21 @@ function render() {
         return;
     }
 
+    // Record WebXR call timing for analysis
+    if (isVRMode) {
+        recordWebXRCall();
+        measureFrameRate();
+    }
+
     if (startTime !== null) {
         const elapsedTime = (performance.now() - startTime) / 1000;
         timerDiv.innerHTML = `${elapsedTime.toFixed(2)}s`;
     }
 
     const delta = clock.getDelta();
+
+    // Record comprehensive timing data
+    recordFrameTiming(delta);
     if (donut) donut.rotateX(donutAngularVelocity * delta / 0.08);
     if (coin) coin.rotateY(2 * donutAngularVelocity * delta / 0.08);
 
@@ -892,8 +1340,6 @@ function render() {
     // VR controller input handling
     if (isVRMode) {
         checkXButtonState();
-        // Update XR Reference Space CONTINUOUSLY for perfect sync (like Spaces project)
-        updateXRSpaceToFollowKart();
     }
 
     // ============= PHYSICS AND GAME LOGIC PHASE =============
@@ -1037,6 +1483,14 @@ function render() {
 
     // ============= ALL PHYSICS COMPLETE - NOW RENDER PHASE =============
 
+    // Update smoothing factor based on kart speed (for fixed-rate system)
+    if (isVRMode && fixedRateSystem.enabled) {
+        updateSmoothingFactor();
+    }
+
+    // NOTE: Reference space updates now handled by fixed-rate system, not here!
+    // This eliminates the WebXR timing irregularity issue
+
     // Render the scene
     renderer.render(scene, camera);
 }
@@ -1100,6 +1554,20 @@ function setupVRButton() {
 
     // Listen for the end of the VR session
     renderer.xr.addEventListener('sessionend', () => {
+        console.log("🔚 WebXR session ended");
+
+        // Stop timing analysis if it's running
+        if (timingAnalysis.enabled) {
+            console.log("⏹️  Auto-stopping timing analysis due to VR session end");
+            stopTimingAnalysis();
+        }
+
+        // Stop fixed-rate system
+        if (fixedRateSystem.enabled) {
+            console.log("⏹️  Auto-stopping fixed-rate system due to VR session end");
+            stopFixedRateSystem();
+        }
+
         isVRMode = false;
         vrToggle.textContent = 'Enter VR';
 
@@ -1145,11 +1613,36 @@ function setupVRButton() {
         isVRMode = true;
         vrToggle.textContent = 'Exit VR';
 
+        // Detect WebXR frame rate
+        detectVRFrameRate(session);
+
+        // Log session details for special OpenXR runtime analysis
+        console.log("🔧 WebXR Session Details:");
+        console.log("   Session object:", session);
+        console.log("   Input sources:", session.inputSources?.length || 0);
+        console.log("   Supported frame rates:", session.supportedFrameRates);
+        console.log("   Current frame rate:", session.frameRate);
+        console.log("   Session mode:", session.mode);
+        console.log("   Session features:", session.enabledFeatures);
+
+        // Start timing analysis automatically in VR mode
+        setTimeout(() => {
+            startTimingAnalysis();
+            console.log("⚡ Auto-started timing analysis for 3D display setup");
+        }, 1000); // Wait 1 second to let VR stabilize
+
         // Initialize WebXR reference spaces following movingSpaces.md
         session.requestReferenceSpace('local').then((referenceSpace) => {
             baseReferenceSpace = referenceSpace;
             currentReferenceSpace = referenceSpace;
             console.log("VR reference space initialized following movingSpaces.md");
+
+            // Start the fixed-rate system once reference space is ready
+            setTimeout(() => {
+                startFixedRateSystem();
+                console.log("🎯 Fixed-rate system should eliminate the jittery kart issue!");
+            }, 500); // Small delay to ensure everything is initialized
+
         }).catch((error) => {
             console.error("Failed to get reference space:", error);
         });
@@ -1348,4 +1841,88 @@ function setupVRControllers() {
 }
 
 init();
-onWindowResize(); 
+onWindowResize();
+
+// Expose frame rate and timing analysis functions to global scope for debugging
+window.getVRFrameRate = getVRFrameRate;
+window.displayVRFrameRateInfo = displayVRFrameRateInfo;
+window.startTimingAnalysis = startTimingAnalysis;
+window.stopTimingAnalysis = stopTimingAnalysis;
+window.analyzeTimingData = analyzeTimingData;
+
+// Add convenience functions for console use
+window.vrAnalysis = {
+    start: startTimingAnalysis,
+    stop: stopTimingAnalysis,
+    analyze: analyzeTimingData,
+    getFrameRate: getVRFrameRate,
+    showInfo: displayVRFrameRateInfo,
+    help: function () {
+        console.log("\n🔧 VR TIMING ANALYSIS CONSOLE COMMANDS:");
+        console.log("   vrAnalysis.start()     - Start timing analysis");
+        console.log("   vrAnalysis.stop()      - Stop and analyze timing");
+        console.log("   vrAnalysis.analyze()   - Re-run analysis on existing data");
+        console.log("   vrAnalysis.getFrameRate() - Get detected frame rate");
+        console.log("   vrAnalysis.showInfo()  - Display frame rate info");
+        console.log("   vrAnalysis.help()      - Show this help");
+        console.log("\n📊 After analysis, inspect:");
+        console.log("   window.timingAnalysis  - Raw timing data");
+        console.log("   window.timingAnalysis.frameTimings - Frame-to-frame times");
+        console.log("   window.timingAnalysis.deltaTimings - Three.js delta times");
+        console.log("   window.timingAnalysis.webxrCallTimings - WebXR call intervals\n");
+    }
+};
+
+// Fixed-rate system console controls
+window.fixedRate = {
+    start: startFixedRateSystem,
+    stop: stopFixedRateSystem,
+    setFPS: function (fps) {
+        if (fixedRateSystem.enabled) {
+            console.log("⚠️  Stop the system first with fixedRate.stop()");
+            return;
+        }
+        fixedRateSystem.targetFPS = fps;
+        console.log(`✅ Target FPS set to ${fps}Hz`);
+    },
+    setSmoothing: function (factor) {
+        if (factor < 0.01 || factor > 1.0) {
+            console.log("⚠️  Smoothing factor must be between 0.01 (very smooth) and 1.0 (instant)");
+            return;
+        }
+        fixedRateSystem.smoothingFactor = factor;
+        console.log(`✅ Smoothing factor set to ${factor} (${factor < 0.1 ? 'very smooth' : factor < 0.3 ? 'smooth' : 'responsive'})`);
+    },
+    status: function () {
+        console.log("\n🔄 FIXED-RATE SYSTEM STATUS:");
+        console.log(`   Enabled: ${fixedRateSystem.enabled}`);
+        console.log(`   Target FPS: ${fixedRateSystem.targetFPS}Hz`);
+        console.log(`   Smoothing: ${fixedRateSystem.smoothingFactor}`);
+        if (fixedRateSystem.enabled) {
+            const runtime = performance.now() - fixedRateSystem.startTime;
+            const actualRate = fixedRateSystem.updateCount / (runtime / 1000);
+            console.log(`   Actual rate: ${actualRate.toFixed(1)}Hz`);
+            console.log(`   Updates: ${fixedRateSystem.updateCount}`);
+            console.log(`   Runtime: ${(runtime / 1000).toFixed(1)}s`);
+        }
+        console.log("");
+    },
+    help: function () {
+        console.log("\n🚀 FIXED-RATE SYSTEM CONSOLE COMMANDS:");
+        console.log("   fixedRate.start()        - Start fixed-rate camera updates");
+        console.log("   fixedRate.stop()         - Stop fixed-rate system");
+        console.log("   fixedRate.setFPS(60)     - Set target update rate (30-120)");
+        console.log("   fixedRate.setSmoothing(0.15) - Set smoothing (0.01=smooth, 0.5=responsive)");
+        console.log("   fixedRate.status()       - Show current status and performance");
+        console.log("   fixedRate.help()         - Show this help");
+        console.log("\n💡 RECOMMENDED SETTINGS:");
+        console.log("   60Hz + 0.15 smoothing = Good balance");
+        console.log("   90Hz + 0.10 smoothing = Very smooth");
+        console.log("   30Hz + 0.25 smoothing = Performance mode\n");
+    }
+};
+
+console.log("\n🔧 WebXR Timing Analysis & Fixed-Rate System Ready!");
+console.log("💡 Type 'vrAnalysis.help()' for timing analysis commands");
+console.log("🚀 Type 'fixedRate.help()' for smoothness fix commands");
+console.log("⚡ Both systems will auto-start when entering VR mode\n"); 
