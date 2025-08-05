@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legend of Heroes - Advanced RPG</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f3f1f, #1a472a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: white;
+        }
+        
+        #gameContainer {
+            text-align: center;
+            background: #1a472a;
+            border: 4px solid #2d5a3d;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+            max-width: 1800px;
+            width: 100%;
+        }
+        
+        canvas {
+            border: 2px solid #4a7c59;
+            background: #2d5a3d;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        /* Character Creation Screen */
+        #characterCreation {
+            background: #0f3f1f;
+            padding: 30px;
+            border-radius: 10px;
+            border: 3px solid #4a7c59;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .name-input {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #4a7c59;
+            border-radius: 5px;
+            background: #1a472a;
+            color: white;
+            margin: 10px;
+            width: 200px;
+        }
+        
+        .character-option {
+            display: inline-block;
+            margin: 20px;
+            padding: 20px;
+            border: 2px solid #4a7c59;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #1a472a;
+            transition: all 0.3s;
+            min-width: 150px;
+        }
+        
+        .character-option:hover, .character-option.selected {
+            background: #2d5a3d;
+            border-color: #5fb370;
+            transform: scale(1.05);
+        }
+        
+        .character-sprite {
+            width: 64px;
+            height: 64px;
+            margin: 10px auto;
+            border: 1px solid #4a7c59;
+            border-radius: 4px;
+        }
+        
+        .start-btn {
+            background: #4a7c59;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .start-btn:hover {
+            background: #5fb370;
+            transform: scale(1.1);
+        }
+        
+        /* Game UI */
+        #gameUI {
+            display: none;
+            grid-template-columns: 300px 1fr 350px;
+            gap: 15px;
+            height: 1100px;
+            max-width: 2200px;
+            margin: 0 auto;
+        }
+        
+        #leftPanel {
+            background: rgba(15, 63, 31, 0.9);
+            border: 2px solid #4a7c59;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        #gameArea {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        #rightPanel {
+            background: rgba(15, 63, 31, 0.9);
+            border: 2px solid #4a7c59;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        /* Combat System */
+        #combatDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #0f3f1f;
+            border: 3px solid #4a7c59;
+            border-radius: 12px;
+            padding: 30px;
+            z-index: 1000;
+            min-width: 400px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+        
+        .combat-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .combat-btn {
+            background: #4a7c59;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .combat-btn:hover {
+            background: #5fb370;
+        }
+        
+        .combat-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        
+        /* Inventory */
+        #inventory {
+            background: #1a472a;
+            border: 1px solid #4a7c59;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .inventory-slot {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #4a7c59;
+            border-radius: 4px;
+            background: #2d5a3d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .inventory-slot:hover {
+            border-color: #5fb370;
+            background: #3a6b4a;
+        }
+        
+        .inventory-slot.equipped {
+            border-color: #FFD700;
+            background: #4a4a00;
+        }
+        
+        .item-icon {
+            font-size: 20px;
+        }
+        
+        .item-count {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 10px;
+            background: #ff0000;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Stats */
+        .stat-bar {
+            background: #660000;
+            height: 16px;
+            border: 1px solid #4a7c59;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 3px 0;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        
+        .health-fill { background: linear-gradient(90deg, #ff0000, #ff6600); }
+        .mana-fill { background: linear-gradient(90deg, #0066ff, #00ccff); }
+        .xp-fill { background: linear-gradient(90deg, #ffff00, #ffaa00); }
+        
+        /* Dialog and Messages */
+        .message-log {
+            height: 150px;
+            overflow-y: auto;
+            background: #2d5a3d;
+            border: 1px solid #4a7c59;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .message.combat { background: rgba(255, 0, 0, 0.2); }
+        .message.loot { background: rgba(255, 255, 0, 0.2); }
+        .message.system { background: rgba(0, 255, 0, 0.2); }
+        
+        h1 {
+            color: #5fb370;
+            text-shadow: 2px 2px 4px #000;
+            margin-bottom: 10px;
+        }
+        
+        h2, h3 {
+            color: #4a7c59;
+            margin: 10px 0;
+        }
+        
+        #gameScreen {
+            display: none;
+        }
+        
+        /* Equipment Panel */
+        .equipment-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .equipment-slot {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #4a7c59;
+            border-radius: 6px;
+            background: #1a472a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .equipment-slot.equipped {
+            border-color: #FFD700;
+        }
+        
+        .slot-label {
+            position: absolute;
+            bottom: -20px;
+            font-size: 10px;
+            text-align: center;
+            width: 100%;
+        }
+        
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .action-btn {
+            background: #4a7c59;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: #5fb370;
+        }
+    </style>
+    </head>
+    <body>
+        <!-- Audio elements for game music and sounds -->
+        <audio id="backgroundMusic" loop>
+            <source src="song.mp3" type="audio/mpeg">
+        </audio>
+        
+        <audio id="combatSound" preload="auto">
+            <!-- Sound effect will be generated programmatically -->
+        </audio>
+        
+        <audio id="itemPickup" preload="auto">
+            <!-- Sound effect will be generated programmatically -->
+        </audio>
+    <div id="gameContainer">
+        <h1>🗡️ Legend of Heroes - Advanced RPG 🛡️</h1>
+        
+        <!-- Character Creation Screen -->
+        <div id="characterCreation">
+            <h2>Create Your Hero!</h2>
+            
+            <div>
+                <h3>Enter Your Name:</h3>
+                <input type="text" id="playerName" class="name-input" placeholder="Hero Name" maxlength="20">
+            </div>
+            
+            <div>
+                <h3>Choose Your Character:</h3>
+                <div class="character-option" data-character="mommydog">
+                    <div class="character-sprite" style="background: linear-gradient(45deg, #87CEEB, #4169E1); position: relative;">
+                        <div style="position: absolute; top: 15px; left: 20px; width: 24px; height: 20px; background: #fff; border-radius: 50% 50% 0 0;"></div>
+                        <div style="position: absolute; top: 25px; left: 15px; width: 8px; height: 8px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 25px; left: 35px; width: 8px; height: 8px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 8px; left: 10px; width: 12px; height: 15px; background: #4169E1; border-radius: 50% 50% 0 0; transform: rotate(-20deg);"></div>
+                        <div style="position: absolute; top: 8px; right: 10px; width: 12px; height: 15px; background: #4169E1; border-radius: 50% 50% 0 0; transform: rotate(20deg);"></div>
+                    </div>
+                    <h3>Mommydog</h3>
+                    <p>🐕 The Swift Husky<br>+2 Speed, +1 Magic</p>
+                </div>
+                
+                <div class="character-option" data-character="doug">
+                    <div class="character-sprite" style="background: linear-gradient(45deg, #000, #fff); position: relative;">
+                        <div style="position: absolute; top: 15px; left: 20px; width: 24px; height: 20px; background: #fff; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 25px; left: 18px; width: 8px; height: 8px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 25px; left: 30px; width: 8px; height: 8px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 10px; left: 15px; width: 15px; height: 15px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 10px; right: 15px; width: 15px; height: 15px; background: #000; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 35px; left: 25px; width: 14px; height: 8px; background: #000; border-radius: 50%;"></div>
+                    </div>
+                    <h3>Doug</h3>
+                    <p>🐼 The Mighty Panda<br>+2 Defense, +1 Strength</p>
+                </div>
+            </div>
+            
+            <button class="start-btn" onclick="startGame()">Begin Adventure!</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameUI">
+            <!-- Left Panel: Character Stats & Equipment -->
+            <div id="leftPanel">
+                <h3 id="heroName">Hero</h3>
+                <div id="characterStats">
+                    <div>Level <span id="level">1</span> (<span id="characterType">Hero</span>)</div>
+                    
+                    <div>Health: <span id="currentHP">100</span>/<span id="maxHP">100</span></div>
+                    <div class="stat-bar">
+                        <div class="stat-fill health-fill" id="hpBar" style="width: 100%"></div>
+                    </div>
+                    
+                    <div>Mana: <span id="currentMP">50</span>/<span id="maxMP">50</span></div>
+                    <div class="stat-bar">
+                        <div class="stat-fill mana-fill" id="mpBar" style="width: 100%"></div>
+                    </div>
+                    
+                    <div>XP: <span id="currentXP">0</span>/<span id="nextLevelXP">100</span></div>
+                    <div class="stat-bar">
+                        <div class="stat-fill xp-fill" id="xpBar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <h4>Equipment</h4>
+                <div class="equipment-panel">
+                    <div class="equipment-slot" id="weaponSlot" onclick="openEquipmentMenu('weapon')">
+                        <div class="slot-label">Weapon</div>
+                    </div>
+                    <div class="equipment-slot" id="shieldSlot" onclick="openEquipmentMenu('shield')">
+                        <div class="slot-label">Shield</div>
+                    </div>
+                    <div class="equipment-slot" id="armorSlot" onclick="openEquipmentMenu('armor')">
+                        <div class="slot-label">Armor</div>
+                    </div>
+                </div>
+
+                <h4>Stats</h4>
+                <div id="playerStats">
+                    <div>💪 Strength: <span id="strStat">10</span></div>
+                    <div>🛡️ Defense: <span id="defStat">10</span></div>
+                    <div>⚡ Speed: <span id="spdStat">10</span></div>
+                    <div>🔮 Magic: <span id="magStat">10</span></div>
+                </div>
+
+                <h4>Controls</h4>
+                <div style="font-size: 12px; margin: 10px 0;">
+                    <div><strong>Movement:</strong></div>
+                    <div>WASD or Arrow Keys</div>
+                    <div><strong>Attack:</strong></div>
+                    <div>X or Z key</div>
+                    <div><strong>Inventory:</strong></div>
+                    <div>I key</div>
+                    <div><strong>Interact:</strong></div>
+                    <div>SPACE (near objects)</div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="exploreArea()">🗺️ Explore</button>
+                    <button class="action-btn" onclick="rest()">😴 Rest</button>
+                    <button class="action-btn" onclick="openShop()">🏪 Shop</button>
+                    <button class="action-btn" onclick="saveGame()">💾 Save</button>
+                </div>
+            </div>
+
+            <!-- Center: Game Area -->
+            <div id="gameArea">
+                <canvas id="gameCanvas" width="1600" height="1000"></canvas>
+                
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="searchForEnemies()">⚔️ Look for Fight</button>
+                    <button class="action-btn" onclick="searchForTreasure()">💎 Search Treasure</button>
+                    <button class="action-btn" onclick="moveToNewArea()">🚶 Move Area</button>
+                    <button class="action-btn" onclick="useMagic()">🔮 Cast Magic</button>
+                </div>
+
+                <div class="message-log" id="messageLog">
+                    <div class="message system">Welcome to your adventure! Use the buttons to explore.</div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Area Info & Quick Actions -->
+            <div id="rightPanel">
+                <h3>💰 Gold: <span id="goldCount">100</span></h3>
+                
+                <h4>Quick Actions</h4>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="toggleInventory()">🎒 Inventory (I)</button>
+                    <button class="action-btn" onclick="useHealthPotion()">🧪 Health Potion</button>
+                    <button class="action-btn" onclick="useManaPotion()">💙 Mana Potion</button>
+                    <button class="action-btn" onclick="openSpellbook()">📚 Spellbook</button>
+                </div>
+
+                <h4>Current Area</h4>
+                <div id="areaInfo">
+                    <div><strong id="currentArea">Starting Village</strong></div>
+                    <div id="areaDescription">A peaceful village where your journey begins.</div>
+                    <div>Danger Level: <span id="dangerLevel">★☆☆☆☆</span></div>
+                </div>
+
+                <h4>Items Carried</h4>
+                <div style="background: #1a472a; border: 1px solid #4a7c59; border-radius: 5px; padding: 10px; font-size: 12px;">
+                    <div>Items: <span id="quickItemCount">0</span>/20</div>
+                    <div style="margin-top: 5px; color: #888;">Press 'I' to open full inventory</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shop Dialog -->
+        <div id="shopDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0f3f1f; border: 3px solid #4a7c59; border-radius: 12px; padding: 30px; z-index: 1000; min-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);">
+            <h3>🏪 Merchant Shop</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Buy Section -->
+                <div>
+                    <h4>📦 Buy Items</h4>
+                    <div id="shopItems" style="max-height: 300px; overflow-y: auto; border: 1px solid #4a7c59; padding: 10px; border-radius: 5px;">
+                        <!-- Shop items will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Sell Section -->
+                <div>
+                    <h4>💰 Sell Items</h4>
+                    <div id="sellItems" style="max-height: 300px; overflow-y: auto; border: 1px solid #4a7c59; padding: 10px; border-radius: 5px;">
+                        <!-- Player items will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <div style="margin-bottom: 10px;">Your Gold: <span id="shopGoldDisplay">0</span> 💰</div>
+                <button class="combat-btn" onclick="closeShop()">Close Shop</button>
+            </div>
+        </div>
+
+        <!-- Inventory Dialog -->
+        <div id="inventoryDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0f3f1f; border: 3px solid #4a7c59; border-radius: 12px; padding: 30px; z-index: 1000; min-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>🎒 Inventory</h3>
+                <button class="combat-btn" onclick="closeInventory()" style="padding: 5px 15px;">✖</button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 250px; gap: 20px;">
+                <!-- Inventory Grid -->
+                <div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Items: <span id="inventoryItemCount">0</span>/20</strong>
+                    </div>
+                    <div id="inventoryDialogGrid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; border: 1px solid #4a7c59; padding: 10px; border-radius: 5px; background: #1a472a;">
+                        <!-- Inventory slots will be generated by JavaScript -->
+                    </div>
+                    
+                    <!-- Selected Item Display -->
+                    <div style="margin-top: 15px;">
+                        <h5 style="color: #5fb370; margin: 0 0 10px 0;">Item Details</h5>
+                        <div id="selectedItemName" style="min-height: 100px; border: 1px solid #4a7c59; padding: 10px; border-radius: 5px; background: #1a472a; color: #ccc; font-size: 12px;">
+                            Hover over an item to see details
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Equipment Panel -->
+                <div>
+                    <h4>Equipment</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                        <div class="equipment-slot" id="inventoryWeaponSlot" style="width: 80px; height: 80px;">
+                            <div class="slot-label">Weapon</div>
+                        </div>
+                        <div class="equipment-slot" id="inventoryShieldSlot" style="width: 80px; height: 80px;">
+                            <div class="slot-label">Shield</div>
+                        </div>
+                        <div class="equipment-slot" id="inventoryArmorSlot" style="width: 80px; height: 80px; grid-column: 1 / -1;">
+                            <div class="slot-label">Armor</div>
+                        </div>
+                    </div>
+                    
+                    <h4>Quick Actions</h4>
+                    <div style="display: grid; gap: 5px;">
+                        <button class="action-btn" onclick="game.useHealthPotion()" style="font-size: 12px; padding: 8px;">🧪 Health Potion</button>
+                        <button class="action-btn" onclick="game.useManaPotion()" style="font-size: 12px; padding: 8px;">💙 Mana Potion</button>
+                        <button class="action-btn" onclick="game.useFood()" style="font-size: 12px; padding: 8px;">🍖 Food</button>
+                        <button class="action-btn" onclick="game.toggleBackgroundMusic()" style="font-size: 12px; padding: 8px;">🎵 Toggle Music</button>
+                        <button class="action-btn" onclick="game.toggleSoundEffects()" style="font-size: 12px; padding: 8px;">🔊 Toggle SFX</button>
+                        <button class="action-btn" onclick="game.showBestWeapons()" style="font-size: 12px; padding: 8px;">🏆 Best Weapons</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
+                Press 'I' to toggle inventory | Click items to use/equip | Right-click for details
+            </div>
+        </div>
+
+        <!-- Chest Opening Dialog -->
+        <div id="chestDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0f3f1f; border: 3px solid #4a7c59; border-radius: 12px; padding: 30px; z-index: 1000; min-width: 400px; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);">
+            <h3>📦 Opening Treasure Chest</h3>
+            <div id="chestContents" style="text-align: center; margin: 20px 0;">
+                <!-- Chest contents will be shown here -->
+            </div>
+            <div style="text-align: center;">
+                <button class="combat-btn" onclick="closeChest()">Take All</button>
+            </div>
+        </div>
+
+        <!-- Game Tips -->
+        <div id="gameTips" style="position: fixed; bottom: 10px; right: 10px; background: rgba(15, 63, 31, 0.9); padding: 15px; border-radius: 8px; border: 2px solid #4a7c59; max-width: 400px; font-size: 12px;">
+            <h4 style="margin: 0 0 10px 0; color: #5fb370;">🎯 Game Tips</h4>
+            <div>• Press 'I' to open inventory (PAUSES game)!</div>
+            <div>• Melee weapons attack super fast!</div>
+            <div>• Ranged weapons have AUTO-AIM! 🎯</div>
+            <div>• Try ALL weapon types: swords, bows, guns, whips!</div>
+            <div>• Bigger screen = more room to explore!</div>
+            <div>• Visit the shop for TONS of new weapons!</div>
+            <div>• Collect chests and open them later!</div>
+            <div>• Click items in inventory to use/equip</div>
+            <div>• Toggle music/SFX in inventory panel!</div>
+            <div>• Special Attacks: Q, E, R, T keys!</div>
+            <div>• Defeat the Ancient Dragon King to WIN!</div>
+            <div>• Dragon Slayer weapon available in shop! 🐉⚔️</div>
+            <div>• Weapons have special effects: Fire, Ice, Lightning!</div>
+            <div>• Activate Shrines for teleportation! ⚡🏛️</div>
+            <div>• Complete shrine challenges for upgrades!</div>
+            <div>• Trade with NPCs for rare items! 💰🤝</div>
+            <div>• Each area has unique traders and deals!</div>
+            <div>• Collect materials and trade up to legendary gear!</div>
+            <div>• Press V to open teleport menu anytime! 🌟</div>
+            <div>• Visual effects show when you activate shrines! ✨</div>
+            <div>• Dragon Slayer now available in shop! 🐉⚔️</div>
+        </div>
+    </div>
+
+    <!-- Teleport Dialog -->
+    <div id="teleportDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a2b4a; border: 3px solid #4169E1; border-radius: 12px; padding: 30px; z-index: 1000; min-width: 400px; max-height: 70vh; overflow-y: auto; box-shadow: 0 0 40px rgba(65, 105, 225, 0.4);">
+        <h2 style="color: #87CEEB; margin: 0 0 20px 0; text-align: center; text-shadow: 1px 1px 2px #000;">🌟 Shrine Teleportation 🌟</h2>
+        <div id="teleportOptions" style="color: #fff;">
+            <!-- Shrine options will be populated here -->
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="closeTeleport()" style="background: #4169E1; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Best Weapons Dialog -->
+    <div id="bestWeaponsDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0f3f1f; border: 3px solid #4a7c59; border-radius: 12px; padding: 30px; z-index: 1000; min-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>🏆 Best Weapons Collection</h3>
+            <button class="combat-btn" onclick="closeBestWeapons()" style="padding: 5px 15px;">✖</button>
+        </div>
+        <div id="bestWeaponsContainer"></div>
+    </div>
+
+    <!-- Victory Dialog -->
+    <div id="victoryDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #0f3f1f, #1a472a); border: 5px solid #ffd700; border-radius: 15px; padding: 40px; z-index: 1001; min-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 100px rgba(255, 215, 0, 0.3); text-align: center;">
+        <div id="victoryStatsContainer"></div>
+        <div style="margin-top: 30px;">
+            <button class="combat-btn" onclick="location.reload()" style="padding: 15px 30px; font-size: 16px; background: linear-gradient(135deg, #5fb370, #4a7c59);">🎮 Play Again</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    
+    <script>
+        function closeBestWeapons() {
+            document.getElementById('bestWeaponsDialog').style.display = 'none';
+        }
+        
+        function closeVictory() {
+            document.getElementById('victoryDialog').style.display = 'none';
+        }
+        
+        function closeTeleport() {
+            console.log('closeTeleport called, game object:', window.game);
+            if (window.game && window.game.closeTeleportDialog) {
+                window.game.closeTeleportDialog();
+            } else {
+                console.log('Using fallback to hide dialog');
+                document.getElementById('teleportDialog').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
+

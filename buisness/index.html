@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎀  Accessory Shop</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🎀  Accessory Shop</h1>
+            <nav class="nav">
+                <button id="cartBtn" class="cart-btn">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span id="cartCount" class="cart-count">0</span>
+                </button>
+                <button id="adminBtn" class="admin-btn">Admin</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h2>Beautiful Handcrafted Jewelry</h2>
+            <p>Discover unique bracelets, necklaces, and accessories</p>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <main class="main">
+        <div class="container">
+            <h2 class="section-title">Our Products</h2>
+            <div id="productsGrid" class="products-grid">
+                <!-- Products will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Shopping Cart Modal -->
+    <div id="cartModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Shopping Cart</h3>
+                <span class="close" id="closeCart">&times;</span>
+            </div>
+            <div id="cartItems" class="cart-items">
+                <!-- Cart items will be loaded here -->
+            </div>
+            <div class="cart-footer">
+                <div class="cart-total">
+                    <strong>Total: $<span id="cartTotal">0.00</span></strong>
+                </div>
+                <button id="checkoutBtn" class="checkout-btn">
+                    <i class="fas fa-credit-card"></i> Secure Checkout
+                </button>
+                <button id="clearCartBtn" class="clear-cart-btn">Clear Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Admin Panel</h3>
+                <span class="close" id="closeAdmin">&times;</span>
+            </div>
+            
+            <!-- Admin Login -->
+            <div id="adminLogin" class="admin-section">
+                <h4>Admin Login</h4>
+                <input type="password" id="adminPassword" placeholder="Enter admin password">
+                <button id="loginBtn" class="btn">Login</button>
+            </div>
+
+            <!-- Admin Dashboard -->
+            <div id="adminDashboard" class="admin-section hidden">
+                <h4>Product Management</h4>
+                
+                <!-- Add Product Form -->
+                <div class="add-product-form">
+                    <h5>Add New Product</h5>
+                    <input type="text" id="productName" placeholder="Product Name" required>
+                    <input type="number" id="productPrice" placeholder="Price" step="0.01" required>
+                    <div class="form-row">
+                        <input type="number" id="productStock" placeholder="Stock Quantity" min="0" required>
+                        <input type="number" id="lowStockAlert" placeholder="Low Stock Alert (optional)" min="0">
+                    </div>
+                    <textarea id="productDescription" placeholder="Product Description" required></textarea>
+                    
+                    <!-- Image Upload Section -->
+                    <div class="image-upload-section">
+                        <label>Product Image:</label>
+                        <div class="image-upload-options">
+                            <button type="button" id="cameraBtn" class="image-btn">
+                                <i class="fas fa-camera"></i> Take Photo
+                            </button>
+                            <button type="button" id="uploadBtn" class="image-btn">
+                                <i class="fas fa-upload"></i> Upload File
+                            </button>
+                            <button type="button" id="urlBtn" class="image-btn">
+                                <i class="fas fa-link"></i> Use URL
+                            </button>
+                        </div>
+                        
+                        <!-- Hidden file input -->
+                        <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                        
+                        <!-- Camera capture -->
+                        <div id="cameraSection" class="camera-section hidden">
+                            <video id="cameraPreview" class="camera-preview" autoplay playsinline></video>
+                            <div class="camera-controls">
+                                <button type="button" id="captureBtn" class="btn">
+                                    <i class="fas fa-camera"></i> Capture
+                                </button>
+                                <button type="button" id="closeCameraBtn" class="btn secondary">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- URL input (initially hidden) -->
+                        <input type="url" id="productImageUrl" placeholder="Image URL" class="hidden">
+                        
+                        <!-- Image preview -->
+                        <div id="imagePreview" class="image-preview hidden">
+                            <img id="previewImg" src="" alt="Product preview">
+                            <div class="image-actions">
+                                <button type="button" id="removeImageBtn" class="btn danger">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Canvas for image processing (hidden) -->
+                        <canvas id="imageCanvas" style="display: none;"></canvas>
+                    </div>
+                    
+                    <button id="addProductBtn" class="btn">Add Product</button>
+                </div>
+
+                <!-- Existing Products -->
+                <div class="existing-products">
+                    <h5>Existing Products</h5>
+                    <div id="adminProductsList" class="admin-products-list">
+                        <!-- Admin products list will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Recent Orders -->
+                <div class="recent-orders">
+                    <h5>Recent Orders</h5>
+                    <div class="admin-settings">
+                        <label>
+                            <input type="checkbox" id="emailNotifications" checked>
+                            Email notifications for new orders
+                        </label>
+                        <input type="email" id="adminEmail" placeholder="Admin email for notifications" 
+                               value="admin@accessoryshop.com">
+                    </div>
+                    <div id="adminOrdersList" class="admin-orders-list">
+                        <!-- Admin orders list will be loaded here -->
+                    </div>
+                    <button id="refreshOrdersBtn" class="btn secondary">
+                        <i class="fas fa-refresh"></i> Refresh Orders
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-credit-card"></i> Secure Checkout</h3>
+                <span class="close" id="closeCheckout">&times;</span>
+            </div>
+            <div class="checkout-content">
+                <!-- Order Summary -->
+                <div class="checkout-section">
+                    <h4>Order Summary</h4>
+                    <div id="checkoutItems" class="checkout-items"></div>
+                    <div class="checkout-total">
+                        <strong>Total: $<span id="checkoutTotal">0.00</span></strong>
+                    </div>
+                </div>
+
+                <!-- Customer Information -->
+                <div class="checkout-section">
+                    <h4>Customer Information</h4>
+                    <div class="form-row">
+                        <input type="text" id="customerName" placeholder="Full Name" required>
+                        <input type="email" id="customerEmail" placeholder="Email Address" required>
+                    </div>
+                    <input type="tel" id="customerPhone" placeholder="Phone Number (optional)">
+                    <textarea id="shippingAddress" placeholder="Shipping Address" required></textarea>
+                </div>
+
+                <!-- Payment Information -->
+                <div class="checkout-section">
+                    <h4>Payment Information</h4>
+                    <div class="payment-methods">
+                        <label class="payment-method active">
+                            <input type="radio" name="paymentMethod" value="card" checked>
+                            <i class="fas fa-credit-card"></i> Credit/Debit Card
+                        </label>
+                        <label class="payment-method">
+                            <input type="radio" name="paymentMethod" value="paypal">
+                            <i class="fab fa-paypal"></i> PayPal
+                        </label>
+                    </div>
+                    
+                    <!-- Stripe Elements will be inserted here -->
+                    <div id="card-element" class="card-element">
+                        <!-- Stripe Elements will create form elements here -->
+                    </div>
+                    <div id="card-errors" class="card-errors" role="alert"></div>
+                </div>
+
+                <!-- Place Order Button -->
+                <div class="checkout-actions">
+                    <button id="placeOrderBtn" class="place-order-btn">
+                        <i class="fas fa-lock"></i> Place Secure Order
+                    </button>
+                    <p class="security-note">
+                        <i class="fas fa-shield-alt"></i>
+                        Your payment information is encrypted and secure
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content success-modal">
+            <div class="modal-header">
+                <h3>🎉 Payment Successful!</h3>
+                <span class="close" id="closeSuccess">&times;</span>
+            </div>
+            <div class="success-content">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h4>Thank you for your purchase!</h4>
+                <p>Your order has been placed successfully.</p>
+                <div class="order-details">
+                    <p><strong>Order ID:</strong> <span id="orderNumber"></span></p>
+                    <p><strong>Total Paid:</strong> $<span id="amountPaid"></span></p>
+                </div>
+                <p>You will receive a confirmation email shortly at <span id="confirmationEmail"></span></p>
+                <button id="continueShopping" class="btn">Continue Shopping</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Accessory Shop. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="payment.js"></script>
+    <script src="notifications.js"></script>
+    <script src="imageUpload.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
