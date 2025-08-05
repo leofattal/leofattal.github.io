@@ -759,7 +759,6 @@ class ECommerceStore {
 let store;
 document.addEventListener('DOMContentLoaded', () => {
     store = new ECommerceStore();
+    // Make store globally available for inline event handlers
+    window.store = store;
 });
-
-// Make store globally available for inline event handlers
-window.store = store;

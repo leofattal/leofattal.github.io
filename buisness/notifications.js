@@ -1,4 +1,5 @@
 // Admin notification system for new orders
+import { SupabaseECommerce } from './supabase.js';
 
 class AdminNotifications {
     constructor() {
