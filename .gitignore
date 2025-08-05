@@ -1,0 +1,5 @@
+# Large asset files
+LeoKart/assets/cartoon_race_track_spielberg/scene.bin
+LeoKart/assets/cartoon_race_track_spielberg/textures/road_spielberg_normal.png
+LeoKart/assets/cartoon_race_track_spielberg/textures/*.png
+LeoKart/assets/**/scene.bin
