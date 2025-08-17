@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Fair Price Calculator</title>
+<style>
+  body{font:16px system-ui,sans-serif;max-width:400px;margin:24px auto}
+  label{display:block;margin:8px 0 4px}
+  input{width:100%;padding:6px}
+  .total{margin-top:12px;font-size:20px;font-weight:700}
+</style></head>
+<body>
+  <h2>Fair Price Calculator</h2>
+
+  <label>Expenses ($)</label>
+  <input id="exp" type="number" value="20">
+
+  <label>Time (hours)</label>
+  <input id="time" type="number" value="5">
+
+  <div class="total" id="priceOut">Price: $0.00</div>
+
+<script>
+function calc(){
+  const E = parseFloat(exp.value)||0;
+  const T = parseFloat(time.value)||0;
+
+  // Price = 1.1 * (T + E)
+  const fairPrice = 1.1 * (T + E);
+  priceOut.textContent = "Price: $" + fairPrice.toFixed(2);
+}
+["exp","time"].forEach(id=>document.getElementById(id).oninput=calc);
+calc();
+</script>
+</body>
+</html>
